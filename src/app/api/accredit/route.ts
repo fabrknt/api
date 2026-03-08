@@ -40,14 +40,22 @@ export async function POST(request: Request) {
                 break;
             }
             case "check_transfer": {
-                const { from, to, jurisdictions } = params || {};
+                const { from, to, jurisdictions, amountUsd } = params || {};
                 if (!from || !to) return NextResponse.json({ error: "from and to are required" }, { status: 400 });
-                result = await accredit.checkTransfer(from, to, jurisdictions);
+                result = await accredit.checkTransfer(from, to, jurisdictions, amountUsd);
+                break;
+            }
+            case "register_kyc": {
+                const { address, kycLevel, investorType, jurisdictions, expiresInDays } = params || {};
+                if (!address || !kycLevel || !investorType || !jurisdictions) {
+                    return NextResponse.json({ error: "address, kycLevel, investorType, and jurisdictions are required" }, { status: 400 });
+                }
+                result = await accredit.registerKyc({ address, kycLevel, investorType, jurisdictions, expiresInDays });
                 break;
             }
             default:
                 return NextResponse.json(
-                    { error: `Unknown method: ${method}. Supported: screen_identity, check_jurisdiction, verify_accreditation, check_transfer` },
+                    { error: `Unknown method: ${method}. Supported: screen_identity, check_jurisdiction, verify_accreditation, check_transfer, register_kyc` },
                     { status: 400 }
                 );
         }
