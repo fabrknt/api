@@ -12,6 +12,7 @@ import type {
     PoolComplianceResult,
     ComplianceAlert,
 } from "./types";
+import { stratum } from "../stratum";
 
 // ---------------------------------------------------------------------------
 // Wallet screening
@@ -30,10 +31,19 @@ export async function screenWallet(
         riskScore += 50;
     }
 
-    // Sanctions list check per jurisdiction
+    // Check against Stratum sanctions data
+    const sanctionsResult = await stratum.checkSanctions(address);
+    if (sanctionsResult.sanctioned) {
+        for (const entry of sanctionsResult.entries) {
+            riskFactors.push(`Sanctioned: ${entry.listSource} — ${entry.reason}`);
+            riskScore += 80;
+        }
+    }
+
+    // Jurisdiction-specific checks
     for (const j of jurisdictions) {
-        // TODO: integrate real sanctions screening API
-        const clean = true;
+        // TODO: expand with jurisdiction-specific sanctions lists
+        const clean = !sanctionsResult.sanctioned;
         if (!clean) {
             riskFactors.push(`Flagged by ${j} sanctions list`);
             riskScore += 40;
