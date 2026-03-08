@@ -1,0 +1,29 @@
+{
+  "name": "@fabrknt/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FABRKNT API — Complr, Sentinel, and QuickNode Marketplace provisioning",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "next": "^16.1.6",
+    "pg": "^8.20.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "@types/pg": "^8.18.0",
+    "@types/react": "^19.2.14",
+    "prisma": "^7.4.2",
+    "typescript": "^5.9.3"
+  }
+}
