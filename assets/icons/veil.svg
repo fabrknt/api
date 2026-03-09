@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Veil — Lock with zero-knowledge proof ring -->
+  <!-- Lock body -->
+  <rect x="144" y="240" width="224" height="192" rx="24" stroke="#1e293b" stroke-width="24" fill="none"/>
+  <!-- Lock shackle -->
+  <path d="M192 240v-56a64 64 0 01128 0v56" stroke="#1e293b" stroke-width="24" fill="none" stroke-linecap="round"/>
+  <!-- ZK proof symbol — concentric partial rings -->
+  <circle cx="256" cy="328" r="8" fill="#3b82f6"/>
+  <path d="M256 296a32 32 0 0132 32" stroke="#3b82f6" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <path d="M256 360a32 32 0 01-32-32" stroke="#3b82f6" stroke-width="12" fill="none" stroke-linecap="round"/>
+</svg>

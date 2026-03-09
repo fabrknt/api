@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Accredit — Person silhouette with verification badge -->
+  <!-- Head -->
+  <circle cx="232" cy="168" r="64" stroke="#1e293b" stroke-width="24" fill="none"/>
+  <!-- Body -->
+  <path d="M104 432c0-72 56-128 128-128s128 56 128 128" stroke="#1e293b" stroke-width="24" fill="none" stroke-linecap="round"/>
+  <!-- Verification badge -->
+  <circle cx="368" cy="176" r="56" fill="#3b82f6"/>
+  <path d="M344 176l16 16 32-32" stroke="white" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

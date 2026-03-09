@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Tempest — Dynamic wave with fee curve -->
+  <!-- Fee curve — rising wave -->
+  <path d="M64 384C112 384 128 320 176 320s64 -64 80-96 48-96 80-96c32 0 48 32 64 64s48 96 80 96" stroke="#1e293b" stroke-width="24" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Volatility wave underneath -->
+  <path d="M64 432c48 0 64-32 96-32s48 32 96 32 64-32 96-32 48 32 96 32" stroke="#1e293b" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.4"/>
+  <!-- Axis lines -->
+  <line x1="64" y1="112" x2="64" y2="432" stroke="#1e293b" stroke-width="8" stroke-linecap="round"/>
+  <line x1="64" y1="432" x2="448" y2="432" stroke="#1e293b" stroke-width="8" stroke-linecap="round"/>
+  <!-- Vol regime markers -->
+  <circle cx="176" cy="320" r="8" fill="#3b82f6"/>
+  <circle cx="256" cy="224" r="8" fill="#3b82f6"/>
+  <circle cx="336" cy="192" r="8" fill="#3b82f6"/>
+  <!-- Labels -->
+  <text x="48" y="104" font-family="Inter, sans-serif" font-size="36" font-weight="600" fill="#1e293b">Fee</text>
+  <text x="400" y="464" font-family="Inter, sans-serif" font-size="36" font-weight="600" fill="#1e293b">Vol</text>
+</svg>

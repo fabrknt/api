@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Tensor — Grid matrix with delta symbol (margin/greeks) -->
+  <!-- 3x3 grid -->
+  <rect x="80" y="80" width="352" height="352" rx="16" stroke="#1e293b" stroke-width="20" fill="none"/>
+  <!-- Vertical grid lines -->
+  <line x1="197" y1="80" x2="197" y2="432" stroke="#1e293b" stroke-width="12"/>
+  <line x1="315" y1="80" x2="315" y2="432" stroke="#1e293b" stroke-width="12"/>
+  <!-- Horizontal grid lines -->
+  <line x1="80" y1="197" x2="432" y2="197" stroke="#1e293b" stroke-width="12"/>
+  <line x1="80" y1="315" x2="432" y2="315" stroke="#1e293b" stroke-width="12"/>
+  <!-- Delta symbol in center cell -->
+  <path d="M256 224l-32 64h64z" stroke="#3b82f6" stroke-width="12" fill="none" stroke-linejoin="round"/>
+  <!-- Diagonal netting line -->
+  <line x1="120" y1="376" x2="392" y2="120" stroke="#3b82f6" stroke-width="8" stroke-dasharray="12 8"/>
+</svg>

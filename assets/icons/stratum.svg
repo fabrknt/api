@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Stratum — Stacked data layers with feed arrow -->
+  <!-- Layer 1 (bottom) -->
+  <ellipse cx="256" cy="384" rx="160" ry="40" stroke="#1e293b" stroke-width="20" fill="none"/>
+  <!-- Layer 2 (middle) -->
+  <ellipse cx="256" cy="296" rx="160" ry="40" stroke="#1e293b" stroke-width="20" fill="none"/>
+  <!-- Layer 3 (top) -->
+  <ellipse cx="256" cy="208" rx="160" ry="40" stroke="#1e293b" stroke-width="20" fill="none"/>
+  <!-- Vertical connectors -->
+  <line x1="96" y1="208" x2="96" y2="384" stroke="#1e293b" stroke-width="20"/>
+  <line x1="416" y1="208" x2="416" y2="384" stroke="#1e293b" stroke-width="20"/>
+  <!-- Feed indicator — down arrow -->
+  <path d="M256 104v72m-24-24l24 24 24-24" stroke="#3b82f6" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

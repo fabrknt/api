@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Sentinel — Eye with shield pupil (pre-tx security) -->
+  <!-- Eye shape -->
+  <path d="M64 256c0 0 80-128 192-128s192 128 192 128-80 128-192 128S64 256 64 256z" stroke="#1e293b" stroke-width="24" fill="none" stroke-linejoin="round"/>
+  <!-- Outer iris -->
+  <circle cx="256" cy="256" r="72" stroke="#1e293b" stroke-width="20" fill="none"/>
+  <!-- Inner pupil as small shield -->
+  <path d="M256 208l40 16v32c0 24-16 40-40 48-24-8-40-24-40-48v-32l40-16z" fill="#3b82f6"/>
+</svg>

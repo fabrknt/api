@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Complr — Shield with scanning lines (sanctions screening) -->
+  <path d="M256 56l176 80v144c0 96-72 176-176 200-104-24-176-104-176-200V136L256 56z" stroke="#1e293b" stroke-width="24" fill="none" stroke-linejoin="round"/>
+  <!-- Scanning lines -->
+  <line x1="160" y1="200" x2="352" y2="200" stroke="#3b82f6" stroke-width="16" stroke-linecap="round"/>
+  <line x1="160" y1="256" x2="352" y2="256" stroke="#3b82f6" stroke-width="16" stroke-linecap="round"/>
+  <line x1="160" y1="312" x2="304" y2="312" stroke="#3b82f6" stroke-width="16" stroke-linecap="round"/>
+  <!-- Checkmark -->
+  <path d="M320 296l24 24 48-56" stroke="#1e293b" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
