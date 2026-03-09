@@ -1,7 +1,8 @@
 /**
  * POST /api/quicknode/provision
  *
- * Called by QuickNode Marketplace when a user adds the Complr add-on.
+ * Called by QuickNode Marketplace when a user adds a Fabrknt add-on.
+ * Supports all 7 products: complr, accredit, sentinel, veil, stratum, tensor, tempest.
  * Creates a new instance and returns access credentials.
  */
 
@@ -9,6 +10,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyQuicknodeAuth } from "@/lib/quicknode/auth";
 import { randomUUID } from "crypto";
+
+const VALID_PRODUCTS = ["complr", "accredit", "sentinel", "veil", "stratum", "tensor", "tempest"] as const;
 
 export async function POST(request: Request) {
     const authError = verifyQuicknodeAuth(request);
@@ -24,11 +27,20 @@ export async function POST(request: Request) {
             chain,
             network,
             plan,
+            product,
         } = body;
 
         if (!quicknodeId) {
             return NextResponse.json(
                 { error: "quicknode-id is required" },
+                { status: 400 }
+            );
+        }
+
+        const productName = product || "complr";
+        if (!VALID_PRODUCTS.includes(productName)) {
+            return NextResponse.json(
+                { error: `Invalid product: ${productName}. Supported: ${VALID_PRODUCTS.join(", ")}` },
                 { status: 400 }
             );
         }
@@ -50,6 +62,7 @@ export async function POST(request: Request) {
                     chain,
                     network,
                     plan: plan || "free",
+                    product: productName,
                     status: "active",
                 },
             });
@@ -57,7 +70,7 @@ export async function POST(request: Request) {
             return NextResponse.json({
                 status: "success",
                 "dashboard-url": `${baseUrl}/quicknode/${instance.id}`,
-                "access-url": `${baseUrl}/api/quicknode/complr/${instance.apiKey}`,
+                "access-url": `${baseUrl}/api/quicknode/${productName}/${instance.apiKey}`,
             });
         }
 
@@ -72,7 +85,7 @@ export async function POST(request: Request) {
                 chain,
                 network,
                 plan: plan || "free",
-                product: "complr",
+                product: productName,
                 apiKey,
             },
         });
@@ -80,7 +93,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
             status: "success",
             "dashboard-url": `${baseUrl}/quicknode/${instance.id}`,
-            "access-url": `${baseUrl}/api/quicknode/complr/${instance.apiKey}`,
+            "access-url": `${baseUrl}/api/quicknode/${productName}/${instance.apiKey}`,
         });
     } catch (error) {
         console.error("Provision error:", error);

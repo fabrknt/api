@@ -140,13 +140,23 @@ All endpoints accept JSON-RPC style requests:
 
 ## QuickNode Marketplace
 
-Complr is available as a QuickNode Marketplace add-on with automatic provisioning.
+All 7 products are available as QuickNode Marketplace add-ons with automatic provisioning.
+
+### Customer API
+
+Each provisioned add-on gets a unique API key. Use it to call the product API:
+
+```
+POST /api/quicknode/{product}/{apiKey}
+```
+
+Where `{product}` is one of: `complr`, `accredit`, `sentinel`, `veil`, `stratum`, `tensor`, `tempest`.
 
 ### Provisioning Lifecycle
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/quicknode/provision` | Create instance when user adds add-on |
+| `POST /api/quicknode/provision` | Create instance when user adds add-on (pass `product` field) |
 | `POST /api/quicknode/deprovision` | Remove instance when user removes add-on |
 | `POST /api/quicknode/update` | Handle plan changes |
 | `POST /api/quicknode/deactivate_endpoint` | Deactivate endpoint |
@@ -206,7 +216,7 @@ src/
     db.ts            Prisma client
   app/
     api/
-      quicknode/     QuickNode provisioning + Complr customer API
+      quicknode/     QuickNode provisioning + multi-product customer API
       accredit/      Accredit API
       sentinel/      Sentinel API
       veil/          Veil API
@@ -216,6 +226,20 @@ src/
 ```
 
 Stratum provides the shared data layer — Complr uses `stratum.checkSanctions()` for wallet screening, and other products can tap into Stratum for sanctions data and regulatory feeds.
+
+## Documentation
+
+Per-product user documentation with request/response examples:
+
+| Product | Docs |
+|---------|------|
+| Complr | [docs/complr.md](docs/complr.md) |
+| Accredit | [docs/accredit.md](docs/accredit.md) |
+| Sentinel | [docs/sentinel.md](docs/sentinel.md) |
+| Veil | [docs/veil.md](docs/veil.md) |
+| Stratum | [docs/stratum.md](docs/stratum.md) |
+| Tensor | [docs/tensor.md](docs/tensor.md) |
+| Tempest | [docs/tempest.md](docs/tempest.md) |
 
 ## Related Repos
 

@@ -1,7 +1,7 @@
 /**
  * POST /api/quicknode/deprovision
  *
- * Called by QuickNode when a user removes the Complr add-on
+ * Called by QuickNode when a user removes a Fabrknt add-on
  * or deletes their QuickNode account.
  */
 

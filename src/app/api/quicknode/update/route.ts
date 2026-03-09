@@ -1,7 +1,7 @@
 /**
  * POST /api/quicknode/update
  *
- * Called by QuickNode when a user changes their subscription plan.
+ * Called by QuickNode when a user changes their Fabrknt add-on subscription plan.
  */
 
 import { NextResponse } from "next/server";

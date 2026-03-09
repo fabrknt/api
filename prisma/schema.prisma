@@ -7,6 +7,7 @@ datasource db {
 }
 
 // QuickNode Marketplace Add-on Instance
+// Supports all 7 Fabrknt products: complr, accredit, sentinel, veil, stratum, tensor, tempest
 model QuicknodeInstance {
   id              String   @id @default(cuid())
 
@@ -21,8 +22,8 @@ model QuicknodeInstance {
   chain           String?
   network         String?
 
-  // Complr add-on state
-  product         String   @default("complr")
+  // Add-on state
+  product         String   @default("complr") // "complr" | "accredit" | "sentinel" | "veil" | "stratum" | "tensor" | "tempest"
   apiKey          String   @unique @default(cuid())
   status          String   @default("active") // "active" | "deactivated" | "deprovisioned"
 
