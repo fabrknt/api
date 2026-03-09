@@ -1,8 +1,8 @@
 # FABRKNT API
 
-Compliance, privacy, DeFi, and data infrastructure for blockchain — delivered as REST APIs and QuickNode Marketplace add-ons.
+Plug-in compliance for DeFi protocols serving TradFi — delivered as REST APIs and QuickNode Marketplace add-ons. No rebuilds required.
 
-## Four Pillars, Seven Products
+## Seven Plug-in Products
 
 ### Compliance
 
@@ -221,8 +221,8 @@ Stratum provides the shared data layer — Complr uses `stratum.checkSanctions()
 
 | Repo | Description |
 |------|-------------|
-| [fabrknt/scorecard](https://github.com/fabrknt/scorecard) | DeFi Compliance Scorecard + Products page at fabrknt.com |
-| [fabrknt/forge](https://github.com/fabrknt/forge) | Reference app dogfooding all 7 products |
+| [fabrknt/scorecard](https://github.com/fabrknt/scorecard) | DeFi Compliance Readiness dashboard at fabrknt.com |
+| [fabrknt/forge](https://github.com/fabrknt/forge) | Reference app showing all 7 Fabrknt plug-ins in action |
 
 ## License
 
