@@ -8,7 +8,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyQuicknodeAuth } from "@/lib/quicknode/auth";
 
-export async function POST(request: Request) {
+export { handler as POST, handler as PUT };
+
+async function handler(request: Request) {
     const authError = verifyQuicknodeAuth(request);
     if (authError) return authError;
 
