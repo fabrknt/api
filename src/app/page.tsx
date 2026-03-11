@@ -8,31 +8,31 @@ export default function Home() {
                 <div style={{ flex: 1, minWidth: "200px" }}>
                     <h2 style={{ fontSize: "0.75rem", fontWeight: 700, color: "#22d3ee", letterSpacing: "0.1em", textTransform: "uppercase" }}>Compliance</h2>
                     <div style={{ marginTop: "0.75rem", color: "#94a3b8", fontSize: "0.875rem", lineHeight: 1.8 }}>
-                        <p><strong style={{ color: "#60a5fa" }}>Complr</strong> — Sanctions screening, Travel Rule, audit trails</p>
-                        <p><strong style={{ color: "#4ade80" }}>Accredit</strong> — KYC/AML enforcement, jurisdiction controls</p>
-                        <p><strong style={{ color: "#fb923c" }}>Sentinel</strong> — Pre-tx threat detection, MEV analysis</p>
+                        <p><strong style={{ color: "#60a5fa" }}>Complr</strong> — AI compliance (MAS/SFC/FSA), multi-provider screening, confidence scoring</p>
+                        <p><strong style={{ color: "#4ade80" }}>Accredit</strong> — On-chain KYC via transfer hooks, compliant routing, asset wrapping</p>
+                        <p><strong style={{ color: "#fb923c" }}>Sentinel</strong> — 17-pattern detection, simulation sandbox, Jito + Flashbots bundles</p>
                     </div>
                 </div>
 
                 <div style={{ flex: 1, minWidth: "200px" }}>
                     <h2 style={{ fontSize: "0.75rem", fontWeight: 700, color: "#f87171", letterSpacing: "0.1em", textTransform: "uppercase" }}>Privacy</h2>
                     <div style={{ marginTop: "0.75rem", color: "#94a3b8", fontSize: "0.875rem", lineHeight: 1.8 }}>
-                        <p><strong style={{ color: "#f87171" }}>Veil</strong> — ZK compliance proofs, encrypted storage, GDPR/APPI</p>
+                        <p><strong style={{ color: "#f87171" }}>Veil</strong> — NaCl encryption, Shamir sharing, Noir ZK proofs, MCP server</p>
                     </div>
                 </div>
 
                 <div style={{ flex: 1, minWidth: "200px" }}>
                     <h2 style={{ fontSize: "0.75rem", fontWeight: 700, color: "#a855f7", letterSpacing: "0.1em", textTransform: "uppercase" }}>Data</h2>
                     <div style={{ marginTop: "0.75rem", color: "#94a3b8", fontSize: "0.875rem", lineHeight: 1.8 }}>
-                        <p><strong style={{ color: "#a855f7" }}>Stratum</strong> — Sanctions aggregation, regulatory feeds, pipeline health</p>
+                        <p><strong style={{ color: "#a855f7" }}>Stratum</strong> — Multi-chain state primitives: Merkle, Bitfield, Expiry, Events</p>
                     </div>
                 </div>
 
                 <div style={{ flex: 1, minWidth: "200px" }}>
                     <h2 style={{ fontSize: "0.75rem", fontWeight: 700, color: "#f59e0b", letterSpacing: "0.1em", textTransform: "uppercase" }}>DeFi</h2>
                     <div style={{ marginTop: "0.75rem", color: "#94a3b8", fontSize: "0.875rem", lineHeight: 1.8 }}>
-                        <p><strong style={{ color: "#fbbf24" }}>Tensor</strong> — Portfolio margin engine, Black-Scholes greeks, delta-netting</p>
-                        <p><strong style={{ color: "#38bdf8" }}>Tempest</strong> — Dynamic AMM fees, IL estimation, LP range optimization</p>
+                        <p><strong style={{ color: "#fbbf24" }}>Tensor</strong> — Unified margin engine, vol surface, solver auctions, ZK credit</p>
+                        <p><strong style={{ color: "#38bdf8" }}>Tempest</strong> — Uniswap v4 dynamic fee hook, keeper fail-safe, LP protection</p>
                     </div>
                 </div>
             </div>

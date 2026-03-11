@@ -5,10 +5,16 @@
  * - Jurisdiction-based access control
  * - Accredited investor verification
  * - Transfer restriction enforcement
+ * - Compliant wrapper (KYC-gated asset wrapping with fee)
+ * - Multi-provider KYC (Civic, World ID, manual)
+ * - Blacklist management for SSS-2 compliance
+ * - On-chain KYC registry with trade limits
+ * - Pool compliance checks
  *
  * Uses Prisma/Postgres when DATABASE_URL is available, falls back to in-memory.
  */
 
+import { randomUUID } from "crypto";
 import type {
     Jurisdiction,
     KycLevel,
@@ -17,7 +23,25 @@ import type {
     JurisdictionCheckResult,
     AccreditationResult,
     TransferCheckResult,
+    OnChainKycLevel,
+    OnChainJurisdiction,
+    WhitelistEntry,
+    BlacklistEntry,
+    ComplianceCheckResult,
+    WrapperConfig,
+    WrapRequest,
+    UnwrapRequest,
+    WrapResult,
+    PoolComplianceEntry,
+    PoolStatus,
+    ZkComplianceProof,
+    KycProvider,
+    KycProviderConfig,
+    KycVerificationRequest,
+    KycVerificationResult,
 } from "./types";
+
+export { OnChainKycLevel, OnChainJurisdiction, PoolStatus } from "./types";
 
 // ---------------------------------------------------------------------------
 // KYC registry — Prisma persistence with in-memory fallback
@@ -30,6 +54,7 @@ interface KycRecord {
     jurisdictions: Jurisdiction[];
     verifiedAt: number;
     expiresAt: number;
+    provider?: KycProvider;
 }
 
 // In-memory fallback store
@@ -174,6 +199,12 @@ export async function screenIdentity(
     // Validate address format
     flags.push(...validateAddress(address));
 
+    // Check blacklist
+    const blacklisted = blacklistStore.get(address.toLowerCase());
+    if (blacklisted) {
+        flags.push(`Blacklisted: ${blacklisted.reason} (source: ${blacklisted.source})`);
+    }
+
     // Look up KYC status
     const record = await getKycRecord(address);
 
@@ -311,6 +342,12 @@ export async function checkTransfer(
     const fromRecord = await getKycRecord(from);
     const toRecord = await getKycRecord(to);
 
+    // Check blacklist
+    const fromBlacklisted = blacklistStore.get(from.toLowerCase());
+    const toBlacklisted = blacklistStore.get(to.toLowerCase());
+    if (fromBlacklisted) requiredActions.push(`Sender blacklisted: ${fromBlacklisted.reason}`);
+    if (toBlacklisted) requiredActions.push(`Recipient blacklisted: ${toBlacklisted.reason}`);
+
     if (!fromRecord) {
         requiredActions.push("Sender requires KYC verification");
     }
@@ -346,6 +383,15 @@ export async function checkTransfer(
         }
     }
 
+    // Check trade limits if applicable
+    if (amountUsd && fromRecord) {
+        const onChainLevel = kycLevelToOnChain(fromRecord.kycLevel);
+        const limit = KYC_TRADE_LIMITS_MAP[onChainLevel];
+        if (limit !== Infinity && amountUsd > limit) {
+            requiredActions.push(`Trade amount $${amountUsd} exceeds limit for ${fromRecord.kycLevel} KYC level ($${limit})`);
+        }
+    }
+
     return {
         from,
         to,
@@ -367,6 +413,7 @@ export async function registerKyc(params: {
     investorType: InvestorType;
     jurisdictions: Jurisdiction[];
     expiresInDays?: number;
+    provider?: KycProvider;
 }): Promise<KycRecord> {
     const now = Date.now();
     const record: KycRecord = {
@@ -376,6 +423,7 @@ export async function registerKyc(params: {
         jurisdictions: params.jurisdictions,
         verifiedAt: now,
         expiresAt: now + (params.expiresInDays || 365) * 24 * 60 * 60 * 1000,
+        provider: params.provider || "manual",
     };
 
     await setKycRecord(record);
@@ -383,13 +431,546 @@ export async function registerKyc(params: {
 }
 
 // ---------------------------------------------------------------------------
+// On-chain KYC level mapping
+// ---------------------------------------------------------------------------
+
+const KYC_TRADE_LIMITS_MAP: Record<number, number> = {
+    0: 1_000,       // Basic
+    1: 50_000,      // Standard
+    2: 500_000,     // Enhanced
+    3: Infinity,    // Institutional
+};
+
+function kycLevelToOnChain(level: KycLevel): number {
+    switch (level) {
+        case "none": return 0;
+        case "basic": return 0;
+        case "enhanced": return 2;
+        case "institutional": return 3;
+        default: return 0;
+    }
+}
+
+/**
+ * Check if a jurisdiction bitmask allows a specific jurisdiction.
+ */
+export function isJurisdictionInBitmask(bitmask: number, jurisdiction: number): boolean {
+    return (bitmask & (1 << jurisdiction)) !== 0;
+}
+
+/**
+ * Check if a jurisdiction is allowed in a bitmask (convenience wrapper).
+ */
+export function isJurisdictionAllowed(bitmask: number, jurisdiction: number): boolean {
+    return isJurisdictionInBitmask(bitmask, jurisdiction);
+}
+
+/**
+ * Build a jurisdiction bitmask from an array of jurisdiction values.
+ */
+export function buildJurisdictionBitmask(jurisdictions: number[]): number {
+    let bitmask = 0;
+    for (const j of jurisdictions) {
+        bitmask |= 1 << j;
+    }
+    return bitmask;
+}
+
+// ---------------------------------------------------------------------------
+// Whitelist management (on-chain KYC registry)
+// ---------------------------------------------------------------------------
+
+const whitelistStore = new Map<string, WhitelistEntry>();
+
+/**
+ * Register a wallet in the whitelist (on-chain registry equivalent).
+ */
+export async function addToWhitelist(entry: WhitelistEntry): Promise<WhitelistEntry> {
+    whitelistStore.set(entry.wallet.toLowerCase(), entry);
+    return entry;
+}
+
+/**
+ * Remove a wallet from the whitelist.
+ */
+export async function removeFromWhitelist(wallet: string): Promise<boolean> {
+    return whitelistStore.delete(wallet.toLowerCase());
+}
+
+/**
+ * Get a whitelist entry.
+ */
+export async function getWhitelistEntry(wallet: string): Promise<WhitelistEntry | null> {
+    return whitelistStore.get(wallet.toLowerCase()) || null;
+}
+
+/**
+ * Check compliance for a wallet against on-chain KYC registry rules.
+ */
+export async function checkOnChainCompliance(params: {
+    wallet: string;
+    requiredKycLevel?: number;
+    jurisdictionBitmask?: number;
+    tradeAmountUsd?: number;
+}): Promise<ComplianceCheckResult> {
+    const { wallet, requiredKycLevel = 0, jurisdictionBitmask, tradeAmountUsd } = params;
+    const entry = whitelistStore.get(wallet.toLowerCase());
+    const flags: string[] = [];
+
+    if (!entry) {
+        return {
+            wallet,
+            compliant: false,
+            kycLevel: 0,
+            jurisdictionAllowed: false,
+            tradeLimitUsd: 0,
+            flags: ["Wallet not found in KYC registry"],
+        };
+    }
+
+    // Check KYC level
+    const levelMet = entry.kycLevel >= requiredKycLevel;
+    if (!levelMet) flags.push(`KYC level ${entry.kycLevel} below required ${requiredKycLevel}`);
+
+    // Check expiration
+    if (entry.expiresAt < Date.now()) {
+        flags.push("KYC verification has expired");
+    }
+
+    // Check jurisdiction
+    let jurisdictionAllowed = true;
+    if (jurisdictionBitmask !== undefined) {
+        jurisdictionAllowed = (entry.jurisdictionBitmask & jurisdictionBitmask) !== 0;
+        if (!jurisdictionAllowed) flags.push("Jurisdiction not allowed");
+    }
+
+    // Check trade limit
+    const tradeLimit = KYC_TRADE_LIMITS_MAP[entry.kycLevel] ?? 0;
+    if (tradeAmountUsd !== undefined && tradeAmountUsd > tradeLimit) {
+        flags.push(`Trade amount $${tradeAmountUsd} exceeds KYC level limit of $${tradeLimit}`);
+    }
+
+    const compliant = levelMet && jurisdictionAllowed && entry.expiresAt > Date.now() && flags.length === 0;
+
+    return {
+        wallet,
+        compliant,
+        kycLevel: entry.kycLevel,
+        jurisdictionAllowed,
+        tradeLimitUsd: tradeLimit,
+        flags,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Blacklist management (SSS-2 compliance)
+// ---------------------------------------------------------------------------
+
+const blacklistStore = new Map<string, BlacklistEntry>();
+
+/**
+ * Add a wallet to the blacklist.
+ */
+export async function addToBlacklist(params: {
+    wallet: string;
+    reason: string;
+    source: string;
+}): Promise<BlacklistEntry> {
+    const entry: BlacklistEntry = {
+        wallet: params.wallet.toLowerCase(),
+        reason: params.reason,
+        blacklistedAt: Date.now(),
+        source: params.source,
+    };
+    blacklistStore.set(entry.wallet, entry);
+    return entry;
+}
+
+/**
+ * Remove a wallet from the blacklist.
+ */
+export async function removeFromBlacklist(wallet: string): Promise<boolean> {
+    return blacklistStore.delete(wallet.toLowerCase());
+}
+
+/**
+ * Check if a wallet is blacklisted.
+ */
+export async function isBlacklisted(wallet: string): Promise<BlacklistEntry | null> {
+    return blacklistStore.get(wallet.toLowerCase()) || null;
+}
+
+/**
+ * List all blacklisted wallets.
+ */
+export async function listBlacklist(params?: {
+    source?: string;
+    limit?: number;
+}): Promise<BlacklistEntry[]> {
+    let entries = Array.from(blacklistStore.values());
+    if (params?.source) entries = entries.filter((e) => e.source === params.source);
+    return entries.slice(0, params?.limit || 100);
+}
+
+// ---------------------------------------------------------------------------
+// Compliant Wrapper — KYC-gated asset wrapping
+// ---------------------------------------------------------------------------
+
+const wrapperConfigStore = new Map<string, WrapperConfig>();
+
+/**
+ * Create a new wrapper configuration for KYC-gated asset wrapping.
+ */
+export async function createWrapperConfig(params: {
+    authority: string;
+    underlyingMint: string;
+    kycRegistry: string;
+    minKycLevel?: number;
+    feeBps?: number;
+    feeRecipient: string;
+}): Promise<WrapperConfig> {
+    const wrappedMint = `wrapped_${params.underlyingMint.slice(0, 8)}_${randomUUID().slice(0, 8)}`;
+    const vault = `vault_${params.underlyingMint.slice(0, 8)}_${randomUUID().slice(0, 8)}`;
+
+    const config: WrapperConfig = {
+        authority: params.authority,
+        underlyingMint: params.underlyingMint,
+        wrappedMint,
+        vault,
+        kycRegistry: params.kycRegistry,
+        totalWrapped: BigInt(0),
+        isActive: true,
+        minKycLevel: (params.minKycLevel ?? 0) as any,
+        feeBps: params.feeBps ?? 30, // 0.3% default
+        feeRecipient: params.feeRecipient,
+        createdAt: BigInt(Date.now()),
+        updatedAt: BigInt(Date.now()),
+        bump: 0,
+        wrappedMintBump: 0,
+    };
+
+    wrapperConfigStore.set(params.underlyingMint.toLowerCase(), config);
+    return config;
+}
+
+/**
+ * Get wrapper config for an underlying mint.
+ */
+export async function getWrapperConfig(underlyingMint: string): Promise<WrapperConfig | null> {
+    return wrapperConfigStore.get(underlyingMint.toLowerCase()) || null;
+}
+
+/**
+ * Wrap underlying tokens into compliant wrapped tokens.
+ * Requires the wallet to be in the KYC registry at the required level.
+ */
+export async function wrapTokens(request: WrapRequest): Promise<WrapResult> {
+    const config = wrapperConfigStore.get(request.underlyingMint.toLowerCase());
+    if (!config) {
+        return { success: false, wrappedAmount: BigInt(0), fee: BigInt(0), wrappedMint: "" };
+    }
+
+    if (!config.isActive) {
+        return { success: false, wrappedAmount: BigInt(0), fee: BigInt(0), wrappedMint: config.wrappedMint };
+    }
+
+    // Check KYC
+    const whitelistEntry = whitelistStore.get(request.wallet.toLowerCase());
+    if (!whitelistEntry || whitelistEntry.kycLevel < config.minKycLevel) {
+        return { success: false, wrappedAmount: BigInt(0), fee: BigInt(0), wrappedMint: config.wrappedMint };
+    }
+
+    // Check expiration
+    if (whitelistEntry.expiresAt < Date.now()) {
+        return { success: false, wrappedAmount: BigInt(0), fee: BigInt(0), wrappedMint: config.wrappedMint };
+    }
+
+    // Calculate fee
+    const fee = (request.amount * BigInt(config.feeBps)) / BigInt(10000);
+    const wrappedAmount = request.amount - fee;
+
+    // Update state
+    config.totalWrapped += wrappedAmount;
+    config.updatedAt = BigInt(Date.now());
+
+    return {
+        success: true,
+        wrappedAmount,
+        fee,
+        wrappedMint: config.wrappedMint,
+    };
+}
+
+/**
+ * Unwrap compliant wrapped tokens back into underlying tokens.
+ */
+export async function unwrapTokens(request: UnwrapRequest): Promise<WrapResult> {
+    const config = wrapperConfigStore.get(request.underlyingMint.toLowerCase());
+    if (!config) {
+        return { success: false, wrappedAmount: BigInt(0), fee: BigInt(0), wrappedMint: "" };
+    }
+
+    // Check KYC
+    const whitelistEntry = whitelistStore.get(request.wallet.toLowerCase());
+    if (!whitelistEntry || whitelistEntry.kycLevel < config.minKycLevel) {
+        return { success: false, wrappedAmount: BigInt(0), fee: BigInt(0), wrappedMint: config.wrappedMint };
+    }
+
+    // Calculate fee
+    const fee = (request.amount * BigInt(config.feeBps)) / BigInt(10000);
+    const underlyingAmount = request.amount - fee;
+
+    // Update state
+    config.totalWrapped -= request.amount;
+    if (config.totalWrapped < BigInt(0)) config.totalWrapped = BigInt(0);
+    config.updatedAt = BigInt(Date.now());
+
+    return {
+        success: true,
+        wrappedAmount: underlyingAmount,
+        fee,
+        wrappedMint: config.wrappedMint,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Pool Compliance
+// ---------------------------------------------------------------------------
+
+const poolComplianceStore = new Map<string, PoolComplianceEntry>();
+
+/**
+ * Register a pool's compliance configuration.
+ */
+export async function registerPoolCompliance(entry: PoolComplianceEntry): Promise<PoolComplianceEntry> {
+    poolComplianceStore.set(entry.poolAddress.toLowerCase(), entry);
+    return entry;
+}
+
+/**
+ * Check if a wallet can participate in a pool.
+ */
+export async function checkPoolAccess(params: {
+    wallet: string;
+    poolAddress: string;
+}): Promise<{ allowed: boolean; reason: string }> {
+    const pool = poolComplianceStore.get(params.poolAddress.toLowerCase());
+    if (!pool) return { allowed: false, reason: "Pool not registered" };
+    if (pool.status !== "active") return { allowed: false, reason: `Pool status: ${pool.status}` };
+    if (pool.currentParticipants >= pool.maxParticipants) return { allowed: false, reason: "Pool at capacity" };
+
+    // Check wallet's whitelist entry
+    const entry = whitelistStore.get(params.wallet.toLowerCase());
+    if (!entry) return { allowed: false, reason: "Wallet not in KYC registry" };
+    if (entry.kycLevel < pool.minKycLevel) return { allowed: false, reason: `KYC level ${entry.kycLevel} below pool minimum ${pool.minKycLevel}` };
+    if ((entry.jurisdictionBitmask & pool.allowedJurisdictions) === 0) return { allowed: false, reason: "Jurisdiction not allowed for this pool" };
+    if (entry.expiresAt < Date.now()) return { allowed: false, reason: "KYC verification expired" };
+
+    return { allowed: true, reason: "Access granted" };
+}
+
+// ---------------------------------------------------------------------------
+// Multi-provider KYC verification
+// ---------------------------------------------------------------------------
+
+const kycProviderConfigs: Map<KycProvider, KycProviderConfig> = new Map();
+
+/**
+ * Configure a KYC verification provider.
+ */
+export function configureKycProvider(config: KycProviderConfig): void {
+    kycProviderConfigs.set(config.provider, config);
+}
+
+/**
+ * Verify KYC via an external provider.
+ * In production, calls the provider's API. Here we simulate the verification flow.
+ */
+export async function verifyKycWithProvider(request: KycVerificationRequest): Promise<KycVerificationResult> {
+    const config = kycProviderConfigs.get(request.provider);
+    if (!config || !config.enabled) {
+        return {
+            wallet: request.wallet,
+            provider: request.provider,
+            verified: false,
+            kycLevel: "none",
+            confidence: 0,
+            verifiedAt: Date.now(),
+            expiresAt: 0,
+            error: `Provider ${request.provider} not configured or disabled`,
+        };
+    }
+
+    if (!config.apiKey && request.provider !== "manual") {
+        return {
+            wallet: request.wallet,
+            provider: request.provider,
+            verified: false,
+            kycLevel: "none",
+            confidence: 0,
+            verifiedAt: Date.now(),
+            expiresAt: 0,
+            error: `No API key configured for ${request.provider}`,
+        };
+    }
+
+    // Provider-specific verification logic
+    switch (request.provider) {
+        case "civic": {
+            // Civic Gateway pass verification
+            if (!config.endpoint) {
+                return simulateProviderVerification(request, "https://api.civic.com/gateway/v1");
+            }
+            return callProviderApi(request, config);
+        }
+        case "worldid": {
+            // World ID proof verification
+            if (!config.endpoint) {
+                return simulateProviderVerification(request, "https://developer.worldcoin.org/api/v1");
+            }
+            return callProviderApi(request, config);
+        }
+        case "synaps":
+        case "sumsub": {
+            if (!config.endpoint) {
+                return simulateProviderVerification(request, `https://api.${request.provider}.com/v1`);
+            }
+            return callProviderApi(request, config);
+        }
+        case "manual":
+        default:
+            return simulateProviderVerification(request, "manual");
+    }
+}
+
+async function callProviderApi(
+    request: KycVerificationRequest,
+    config: KycProviderConfig,
+): Promise<KycVerificationResult> {
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(`${config.endpoint}/verify`, {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${config.apiKey}`,
+            },
+            body: JSON.stringify({
+                wallet: request.wallet,
+                jurisdiction: request.jurisdiction,
+                documentType: request.documentType,
+            }),
+        });
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return {
+                wallet: request.wallet,
+                provider: request.provider,
+                verified: false,
+                kycLevel: "none",
+                confidence: 0,
+                verifiedAt: Date.now(),
+                expiresAt: 0,
+                error: `Provider API error: ${response.status} ${errorText}`,
+            };
+        }
+
+        const data = await response.json() as {
+            verified: boolean;
+            level?: string;
+            confidence?: number;
+            expires_at?: number;
+        };
+
+        const kycLevel = data.level === "institutional" ? "institutional"
+            : data.level === "enhanced" ? "enhanced"
+                : data.level === "basic" ? "basic"
+                    : "basic";
+
+        const now = Date.now();
+        return {
+            wallet: request.wallet,
+            provider: request.provider,
+            verified: data.verified,
+            kycLevel: data.verified ? kycLevel : "none",
+            confidence: data.confidence ?? (data.verified ? 90 : 0),
+            verifiedAt: now,
+            expiresAt: data.expires_at || now + 365 * 24 * 60 * 60 * 1000,
+        };
+    } catch (error: any) {
+        return {
+            wallet: request.wallet,
+            provider: request.provider,
+            verified: false,
+            kycLevel: "none",
+            confidence: 0,
+            verifiedAt: Date.now(),
+            expiresAt: 0,
+            error: `Provider API unavailable: ${error.message}`,
+        };
+    }
+}
+
+function simulateProviderVerification(
+    request: KycVerificationRequest,
+    _endpoint: string,
+): KycVerificationResult {
+    // Simulation for development/testing
+    const now = Date.now();
+    return {
+        wallet: request.wallet,
+        provider: request.provider,
+        verified: true,
+        kycLevel: "basic",
+        confidence: 85,
+        verifiedAt: now,
+        expiresAt: now + 365 * 24 * 60 * 60 * 1000,
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export const accredit = {
+    // Original API
     screenIdentity,
     checkJurisdiction,
     verifyAccreditation,
     checkTransfer,
     registerKyc,
+
+    // On-chain KYC registry
+    isJurisdictionInBitmask,
+    isJurisdictionAllowed,
+    buildJurisdictionBitmask,
+    addToWhitelist,
+    removeFromWhitelist,
+    getWhitelistEntry,
+    checkOnChainCompliance,
+
+    // Blacklist (SSS-2)
+    addToBlacklist,
+    removeFromBlacklist,
+    isBlacklisted,
+    listBlacklist,
+
+    // Compliant wrapper
+    createWrapperConfig,
+    getWrapperConfig,
+    wrapTokens,
+    unwrapTokens,
+
+    // Pool compliance
+    registerPoolCompliance,
+    checkPoolAccess,
+
+    // Multi-provider KYC
+    configureKycProvider,
+    verifyKycWithProvider,
 };

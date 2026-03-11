@@ -1,6 +1,6 @@
-# Veil — Privacy-Preserving Compliance
+# Veil — Privacy Primitives
 
-Plug-in ZK compliance proofs, AES-256-GCM encrypted PII storage, and privacy framework assessment for existing DeFi protocols.
+Chain-agnostic privacy primitives for any blockchain, with optional Solana-specific extensions. NaCl Box encryption, Shamir secret sharing, Noir ZK proofs, encrypted swap orders, and an MCP server for AI agents.
 
 ## Endpoint
 
@@ -9,102 +9,189 @@ POST /api/quicknode/veil/{apiKey}
 POST /api/veil  (standalone)
 ```
 
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `@veil/core` | Chain-agnostic encryption and privacy primitives, plus optional Solana-specific extensions |
+| `@veil/orders` | Chain-agnostic encrypted swap order payloads for MEV protection on any DEX |
+| `@veil/qn-addon` | Fabrknt Privacy — QuickNode Marketplace REST Add-On serving chain-agnostic privacy primitives |
+| `@veil/mcp-server` | MCP server exposing privacy tools for AI agents (chain-agnostic + Solana-specific) |
+
 ## Methods
 
-### generate_proof
+### generate_keypair
 
-Generate a ZK compliance proof for an address.
+Generate a random NaCl Box encryption keypair (Curve25519-XSalsa20-Poly1305).
 
 ```json
 {
-  "method": "generate_proof",
+  "method": "generate_keypair",
+  "params": {}
+}
+```
+
+### derive_keypair
+
+Derive a deterministic keypair from a 32-byte seed.
+
+```json
+{
+  "method": "derive_keypair",
   "params": {
-    "address": "0x1234...",
-    "proofType": "kyc_verified",
-    "claims": { "jurisdiction": "MAS", "level": 2 }
+    "seed": "<base64-encoded-32-bytes>"
   }
 }
 ```
 
-**Parameters:**
-- `address` (required) — Wallet address
-- `proofType` (required) — `kyc_verified`, `accredited`, `sanctions_clear`, `jurisdiction_eligible`
-- `claims` (optional) — Additional claims to include in the proof
+### encrypt
 
-### verify_proof
-
-Verify an existing compliance proof.
+Encrypt data using NaCl Box (Curve25519-XSalsa20-Poly1305 authenticated encryption).
 
 ```json
 {
-  "method": "verify_proof",
+  "method": "encrypt",
   "params": {
-    "proofId": "proof_abc123",
-    "proofHash": "0x..."
+    "plaintext": "<base64>",
+    "recipientPublicKey": "<base64>",
+    "senderSecretKey": "<base64>",
+    "senderPublicKey": "<base64>"
   }
 }
 ```
 
-### encrypt_data
+### decrypt
 
-AES-256-GCM encrypt PII for compliant storage.
+Decrypt NaCl Box ciphertext.
 
 ```json
 {
-  "method": "encrypt_data",
+  "method": "decrypt",
   "params": {
-    "data": { "name": "John Doe", "nationality": "SG" },
-    "accessPolicy": ["compliance_officer", "regulator"],
-    "expiresInDays": 365
+    "bytes": "<base64>",
+    "senderPublicKey": "<base64>",
+    "recipientSecretKey": "<base64>",
+    "recipientPublicKey": "<base64>"
   }
 }
 ```
 
-### assess_privacy
+### encrypt_multiple
 
-Assess compliance with privacy frameworks (GDPR, APPI, PDPA, CCPA).
+Encrypt data for multiple recipients at once.
 
 ```json
 {
-  "method": "assess_privacy",
+  "method": "encrypt_multiple",
   "params": {
-    "address": "0x1234...",
-    "frameworks": ["GDPR", "APPI"],
-    "dataCategories": ["identity", "transaction"]
+    "plaintext": "<base64>",
+    "recipientPublicKeys": ["<base64>", "<base64>"],
+    "senderSecretKey": "<base64>",
+    "senderPublicKey": "<base64>"
   }
 }
 ```
 
-### record_consent
+### shamir_split
 
-Record user consent for data processing.
+Split a 32-byte secret into M-of-N Shamir shares.
 
 ```json
 {
-  "method": "record_consent",
+  "method": "shamir_split",
   "params": {
-    "address": "0x1234...",
-    "purpose": "kyc_verification",
-    "framework": "GDPR",
-    "granted": true,
-    "expiresInDays": 365
+    "secret": "<base64-32-bytes>",
+    "threshold": 3,
+    "totalShares": 5
   }
 }
 ```
 
-### get_consent
+### shamir_combine
 
-Retrieve consent records for an address.
+Reconstruct a secret from Shamir shares.
 
 ```json
 {
-  "method": "get_consent",
+  "method": "shamir_combine",
   "params": {
-    "address": "0x1234...",
-    "purpose": "kyc_verification"
+    "shares": [
+      { "index": 1, "value": "<base64>" },
+      { "index": 3, "value": "<base64>" },
+      { "index": 5, "value": "<base64>" }
+    ]
   }
 }
 ```
+
+### encrypt_order
+
+Encrypt a DEX swap order payload for MEV protection (chain-agnostic).
+
+```json
+{
+  "method": "encrypt_order",
+  "params": {
+    "minOutputAmount": "1000000",
+    "slippageBps": 50,
+    "deadline": 1700000000,
+    "solverPublicKey": "<base64>",
+    "userSecretKey": "<base64>",
+    "userPublicKey": "<base64>"
+  }
+}
+```
+
+### decrypt_order
+
+Decrypt an encrypted swap order payload.
+
+```json
+{
+  "method": "decrypt_order",
+  "params": {
+    "bytes": "<base64>",
+    "userPublicKey": "<base64>",
+    "solverSecretKey": "<base64>",
+    "solverPublicKey": "<base64>"
+  }
+}
+```
+
+### compression_estimate
+
+Estimate ZK compression savings (stateless, no RPC needed).
+
+```json
+{
+  "method": "compression_estimate",
+  "params": {
+    "size": 4096
+  }
+}
+```
+
+## Chain-Agnostic Modules
+
+- **NaCl Box Encryption** — Curve25519-XSalsa20-Poly1305 authenticated encryption for order payloads, routing hints, and private data
+- **Shamir's Secret Sharing** — M-of-N threshold secret splitting for multi-party decryption and escrow
+- **Payload Serialization** — Type-safe binary serialization with pre-defined schemas (SWAP_ORDER, RWA_ASSET, RWA_ACCESS_GRANT)
+- **Noir ZK Proofs** — Zero-knowledge proofs for swap validity, range checks; chain-agnostic verification
+- **Encrypted Swap Orders** — High-level API for encrypting DEX swap orders that solvers can decrypt but MEV searchers cannot
+
+## Solana-Specific Modules
+
+- **ZK Compression** (Light Protocol) — Compress on-chain data for ~99% cost savings, compressed token operations
+- **Shielded Transfers** (Privacy Cash) — Private token transfers where amounts and participants are hidden on-chain
+- **Arcium MPC Integration** — Encrypted shared state and multi-party computation for dark pools and confidential DeFi
+
+## MCP Server
+
+MCP server exposing Veil privacy tools for AI agents (Claude, GPT, etc.). 14 chain-agnostic tools and 5 Solana-specific tools over stdio transport.
+
+## Solana Apps
+
+5 privacy-focused DeFi applications: confidential swap router, RWA secrets service, umbra (reputation-gated privacy), darkflow (encrypted LP/dark pools), shadowlaunch (private pump.fun purchases).
 
 ## Plan Limits
 

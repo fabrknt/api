@@ -1,6 +1,6 @@
-# Stratum — Sanctions Data & Regulatory Feeds
+# Stratum — Multi-Chain State Primitives
 
-Plug-in live OFAC SDN sanctions feed, sanctions list aggregation, and regulatory update feeds for existing DeFi protocols.
+Multi-chain state primitives achieving 800x state reduction through 5 composable patterns. Built for Solana (Anchor) and EVM (Solidity/Foundry).
 
 ## Endpoint
 
@@ -9,99 +9,136 @@ POST /api/quicknode/stratum/{apiKey}
 POST /api/stratum  (standalone)
 ```
 
+## Primitives
+
+| Primitive | What it does | Solana | EVM |
+|-----------|-------------|--------|-----|
+| **Bitfield** | Compact bit tracking (claims, spent flags) | 256-byte PDA chunks | `mapping(uint256 => uint256)` |
+| **Merkle** | Commit to large datasets in 32 bytes | Custom hash | keccak256 with domain separation |
+| **Expiry** | TTL + incentivized cleanup | Rent-based | Deposit-based (ETH deposits, cleaner rewards) |
+| **Events** | History summarization without state bloat | `emit!()` macro | LOG events (8-13x cheaper than storage) |
+| **Resurrection** | Archive off-chain, restore with proofs | PDA accounts | Merkle + Bitfield tracking |
+
 ## Methods
 
-### check_sanctions
+### merkle_build
 
-Check an address against live OFAC SDN and aggregated sanctions lists.
+Build a Merkle tree from a set of leaves.
 
 ```json
 {
-  "method": "check_sanctions",
+  "method": "merkle_build",
   "params": {
-    "address": "0x1234..."
+    "leaves": ["leaf0", "leaf1", "leaf2"]
   }
 }
 ```
 
-**Parameters:**
-- `address` (required) — Wallet address (Ethereum or Bitcoin)
+### merkle_proof
 
-**Response:**
-```json
-{
-  "result": {
-    "address": "0x1234...",
-    "sanctioned": false,
-    "lists": [],
-    "checkedAt": "2026-03-09T12:00:00Z"
-  }
-}
-```
-
-**Data Source:** Live OFAC SDN feed from US Treasury (`sdn.csv`), cached for 24 hours.
-
-### get_sanctions_list
-
-Browse sanctions list entries.
+Generate an inclusion proof for a leaf.
 
 ```json
 {
-  "method": "get_sanctions_list",
+  "method": "merkle_proof",
   "params": {
-    "listSource": "OFAC",
-    "limit": 50
+    "treeId": "tree_abc",
+    "leafIndex": 0
   }
 }
 ```
 
-**Parameters:**
-- `listSource` (optional) — Filter by list source: `OFAC`, `UN`, `EU`
-- `limit` (optional) — Number of entries to return
+### merkle_verify
 
-### get_regulatory_updates
-
-Get latest regulatory changes affecting DeFi protocols.
+Verify a proof against a root.
 
 ```json
 {
-  "method": "get_regulatory_updates",
+  "method": "merkle_verify",
   "params": {
-    "jurisdiction": "MAS",
-    "impact": "high",
-    "limit": 10
+    "proof": ["0x..."],
+    "root": "0x...",
+    "leaf": "0x..."
   }
 }
 ```
 
-**Parameters:**
-- `jurisdiction` (optional) — `MAS`, `SFC`, `FSA`, or `FATF`
-- `impact` (optional) — `high`, `medium`, `low`
-- `limit` (optional) — Number of updates to return
+### bitfield_create
 
-### get_health
-
-Check data pipeline health status.
+Create a new bitfield for compact state tracking.
 
 ```json
 {
-  "method": "get_health",
-  "params": {}
-}
-```
-
-### get_feed_status
-
-Check status of an individual data feed.
-
-```json
-{
-  "method": "get_feed_status",
+  "method": "bitfield_create",
   "params": {
-    "feedId": "ofac-sdn"
+    "capacity": 2048
   }
 }
 ```
+
+### bitfield_set
+
+Set a bit in a bitfield.
+
+```json
+{
+  "method": "bitfield_set",
+  "params": {
+    "bitfieldId": "bf_abc",
+    "index": 42
+  }
+}
+```
+
+### bitfield_check
+
+Check whether a bit is set.
+
+```json
+{
+  "method": "bitfield_check",
+  "params": {
+    "bitfieldId": "bf_abc",
+    "index": 42
+  }
+}
+```
+
+## TypeScript Packages
+
+| Package | Description |
+|---------|-------------|
+| `@stratum/core` | Chain-agnostic MerkleTree, Bitfield, OrderMatcher, types |
+| `@stratum/solana` | PDA derivation, OrderBookClient, solanaHash |
+| `@stratum/evm` | EvmMerkleTree, event parser, archive manager |
+
+## EVM Gas Benchmarks
+
+| Operation | Naive Approach | Stratum | Savings |
+|-----------|---------------|---------|---------|
+| 256 boolean sets | 6.0M gas (`mapping(uint256 => bool)`) | 439K gas (Bitfield) | **13.7x** |
+| 10 record writes | 1.19M gas (struct per record) | 147K gas (Events) | **8.1x** |
+| Merkle verify (100k entries) | N/A | ~6,154 gas | -- |
+
+## Solana State Cost Comparison (10,000 orders)
+
+| Approach | State Size | Rent Cost |
+|----------|-----------|-----------|
+| Traditional (account per order) | ~2 MB | ~6.9 SOL |
+| Stratum-optimized (merkle + bitfield) | ~2.5 KB | ~0.02 SOL |
+
+## Solana Programs
+
+- **airdrop-example** — Merkle tree whitelist + Bitfield claim tracking + Expiry with cleanup rewards
+- **stratum-orderbook** — State-optimized on-chain order book using Stratum primitives (99%+ state cost reduction)
+
+## Off-Chain Cranker
+
+OrderStore, OrderMatcher, EpochCranker, SettlementSubmitter for off-chain order matching.
+
+## QuickNode Add-on
+
+**Fabrknt Data Optimization** (`fabrknt-data-optimization`) with Starter (free) and Pro plans.
 
 ## Plan Limits
 

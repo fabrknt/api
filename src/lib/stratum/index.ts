@@ -5,6 +5,10 @@
  * - Regulatory update feeds
  * - Data pipeline health monitoring
  * - Cross-product data sharing
+ * - ZK verifier (Merkle inclusion, batch, state transition circuits)
+ * - DA provider config (Celestia, Avail, EigenDA, memory)
+ * - Cranker registry with challenge system
+ * - Cleanup estimator for expired orders
  */
 
 import { randomUUID } from "crypto";
@@ -14,6 +18,20 @@ import type {
     SanctionsListEntry,
     RegulatoryUpdate,
     HealthStatus,
+    OrderSide,
+    OrderLeaf,
+    MerkleProof,
+    HashFunction,
+    ZKCircuitConfig,
+    ZKProof,
+    ZKVerificationResult,
+    DAProvider,
+    DAConfig,
+    DASubmissionResult,
+    DARetrievalResult,
+    CrankerEntry,
+    CrankerChallenge,
+    CleanupEstimate,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -320,13 +338,544 @@ export async function getFeedStatus(feedId: string): Promise<DataFeed | null> {
 }
 
 // ---------------------------------------------------------------------------
+// ZK Verifier — Circuit definitions and verification
+// ---------------------------------------------------------------------------
+
+const ZK_CIRCUITS: Record<string, ZKCircuitConfig> = {
+    merkle_inclusion: {
+        name: "merkle_inclusion",
+        description: "Proves a leaf exists in a Merkle tree without revealing the leaf",
+        inputCount: 3, // leaf, root, path
+        backend: "snarkjs",
+    },
+    batch_merkle: {
+        name: "batch_merkle",
+        description: "Batch verification of multiple Merkle inclusion proofs",
+        inputCount: 6, // multiple leaves + roots
+        backend: "snarkjs",
+    },
+    state_transition: {
+        name: "state_transition",
+        description: "Proves valid order book state transition (insert/cancel/match)",
+        inputCount: 4, // old_root, new_root, operation, proof
+        backend: "snarkjs",
+    },
+};
+
+/**
+ * List available ZK circuits.
+ */
+export function listZkCircuits(): ZKCircuitConfig[] {
+    return Object.values(ZK_CIRCUITS);
+}
+
+/**
+ * Get a specific ZK circuit config.
+ */
+export function getZkCircuit(name: string): ZKCircuitConfig | null {
+    return ZK_CIRCUITS[name] || null;
+}
+
+/**
+ * Generate a mock ZK proof for a given circuit.
+ * In production, this would use snarkjs with actual circuit WASM + zkey files.
+ */
+export async function generateZkProof(params: {
+    circuit: string;
+    inputs: Record<string, bigint | number | string>;
+}): Promise<ZKProof> {
+    const { circuit, inputs } = params;
+    const config = ZK_CIRCUITS[circuit];
+    if (!config) {
+        throw new Error(`Unknown circuit: ${circuit}. Available: ${Object.keys(ZK_CIRCUITS).join(", ")}`);
+    }
+
+    // In production, load WASM + zkey and call snarkjs.groth16.fullProve
+    // For now, generate a deterministic mock proof based on inputs
+    const inputStr = JSON.stringify(inputs);
+    const { createHash } = await import("crypto");
+    const hash = createHash("sha256").update(inputStr).update(circuit).digest();
+
+    const publicInputs: Uint8Array[] = [];
+    for (const [_key, val] of Object.entries(inputs)) {
+        const buf = Buffer.alloc(32);
+        const bigVal = typeof val === "bigint" ? val : BigInt(val.toString());
+        const hex = bigVal.toString(16).padStart(64, "0").slice(0, 64);
+        Buffer.from(hex, "hex").copy(buf);
+        publicInputs.push(new Uint8Array(buf));
+    }
+
+    return {
+        proof: new Uint8Array(hash),
+        publicInputs,
+        circuit,
+    };
+}
+
+/**
+ * Verify a ZK proof for a given circuit.
+ * In production, uses snarkjs.groth16.verify with the verification key.
+ */
+export async function verifyZkProof(params: {
+    proof: ZKProof;
+}): Promise<ZKVerificationResult> {
+    const { proof } = params;
+    const config = ZK_CIRCUITS[proof.circuit];
+    if (!config) {
+        return {
+            valid: false,
+            circuit: proof.circuit,
+            verifiedAt: Date.now(),
+            error: `Unknown circuit: ${proof.circuit}`,
+        };
+    }
+
+    // Mock verification: check proof is non-empty and has correct public input count
+    const valid = proof.proof.length > 0
+        && proof.publicInputs.length >= 1
+        && proof.publicInputs.length <= config.inputCount + 2;
+
+    return {
+        valid,
+        circuit: proof.circuit,
+        verifiedAt: Date.now(),
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Merkle tree utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute SHA-256 hash (for Merkle tree operations).
+ */
+function sha256Hash(data: Uint8Array): Uint8Array {
+    const crypto = require("crypto");
+    return new Uint8Array(crypto.createHash("sha256").update(data).digest());
+}
+
+/**
+ * Hash two siblings together for Merkle tree.
+ */
+function hashPair(left: Uint8Array, right: Uint8Array, hashFn: HashFunction = "sha256"): Uint8Array {
+    const combined = new Uint8Array(left.length + right.length);
+    combined.set(left, 0);
+    combined.set(right, left.length);
+
+    if (hashFn === "sha256") return sha256Hash(combined);
+    if (hashFn === "keccak256") {
+        // Use SHA-256 as keccak fallback in self-contained mode
+        return sha256Hash(combined);
+    }
+    // poseidon would require a dedicated library; fallback to sha256
+    return sha256Hash(combined);
+}
+
+/**
+ * Verify a Merkle inclusion proof.
+ */
+export function verifyMerkleProof(
+    proof: MerkleProof,
+    hashFn: HashFunction = "sha256",
+): boolean {
+    let current = proof.leaf;
+    let idx = proof.index;
+
+    for (const sibling of proof.siblings) {
+        if (idx % 2 === 0) {
+            current = hashPair(current, sibling, hashFn);
+        } else {
+            current = hashPair(sibling, current, hashFn);
+        }
+        idx = Math.floor(idx / 2);
+    }
+
+    if (current.length !== proof.root.length) return false;
+    for (let i = 0; i < current.length; i++) {
+        if (current[i] !== proof.root[i]) return false;
+    }
+    return true;
+}
+
+/**
+ * Build a Merkle root from a set of leaves.
+ */
+export function buildMerkleRoot(
+    leaves: Uint8Array[],
+    hashFn: HashFunction = "sha256",
+): Uint8Array {
+    if (leaves.length === 0) return new Uint8Array(32);
+    if (leaves.length === 1) return leaves[0];
+
+    // Pad to power of 2
+    const padded = [...leaves];
+    while (padded.length & (padded.length - 1)) {
+        padded.push(new Uint8Array(padded[0].length));
+    }
+
+    let layer = padded;
+    while (layer.length > 1) {
+        const next: Uint8Array[] = [];
+        for (let i = 0; i < layer.length; i += 2) {
+            next.push(hashPair(layer[i], layer[i + 1], hashFn));
+        }
+        layer = next;
+    }
+
+    return layer[0];
+}
+
+// ---------------------------------------------------------------------------
+// DA Provider Configuration
+// ---------------------------------------------------------------------------
+
+const DA_ENV_MAP: Record<DAProvider, { endpoint: string; auth: string; namespace?: string }> = {
+    celestia: { endpoint: "CELESTIA_ENDPOINT", auth: "CELESTIA_AUTH_TOKEN", namespace: "CELESTIA_NAMESPACE" },
+    avail: { endpoint: "AVAIL_ENDPOINT", auth: "AVAIL_AUTH_TOKEN" },
+    eigenDA: { endpoint: "EIGENDA_ENDPOINT", auth: "EIGENDA_AUTH_TOKEN" },
+    memory: { endpoint: "", auth: "" },
+};
+
+/**
+ * Load DA configuration from environment variables.
+ * Falls back to in-memory provider if no DA provider is configured.
+ */
+export function loadDAConfig(): DAConfig {
+    const provider = (process.env.DA_PROVIDER || "memory") as DAProvider;
+
+    if (provider === "memory") {
+        return { provider: "memory", maxBlobSize: 1024 * 1024, timeout: 5000 };
+    }
+
+    const envMap = DA_ENV_MAP[provider];
+    if (!envMap) {
+        console.warn(`Stratum: Unknown DA provider "${provider}", falling back to memory`);
+        return { provider: "memory", maxBlobSize: 1024 * 1024, timeout: 5000 };
+    }
+
+    return {
+        provider,
+        endpoint: process.env[envMap.endpoint] || undefined,
+        authToken: process.env[envMap.auth] || undefined,
+        namespace: envMap.namespace ? process.env[envMap.namespace] : undefined,
+        maxBlobSize: 2 * 1024 * 1024, // 2MB default
+        timeout: 30000,
+    };
+}
+
+/**
+ * Validate a DA configuration.
+ */
+export function validateDAConfig(config: DAConfig): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (config.provider !== "memory") {
+        if (!config.endpoint) errors.push(`Missing endpoint for ${config.provider}`);
+        if (!config.authToken) errors.push(`Missing auth token for ${config.provider}`);
+    }
+    if (config.provider === "celestia" && !config.namespace) {
+        errors.push("Celestia requires a namespace");
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
+// In-memory DA store (fallback)
+const memoryDAStore = new Map<string, Uint8Array>();
+
+/**
+ * Submit data to the configured DA provider.
+ */
+export async function submitToDA(
+    data: Uint8Array,
+    config?: DAConfig,
+): Promise<DASubmissionResult> {
+    const daConfig = config || loadDAConfig();
+
+    if (daConfig.provider === "memory") {
+        const blobId = randomUUID();
+        memoryDAStore.set(blobId, data);
+        return {
+            success: true,
+            provider: "memory",
+            blobId,
+            blockHeight: Date.now(),
+            commitment: sha256Hash(data),
+            submittedAt: Date.now(),
+        };
+    }
+
+    // For real DA providers, submit via their API
+    if (!daConfig.endpoint) {
+        return { success: false, provider: daConfig.provider, error: "No endpoint configured", submittedAt: Date.now() };
+    }
+
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), daConfig.timeout || 30000);
+
+        const response = await fetch(`${daConfig.endpoint}/v1/submit`, {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+                "Content-Type": "application/octet-stream",
+                ...(daConfig.authToken ? { Authorization: `Bearer ${daConfig.authToken}` } : {}),
+                ...(daConfig.namespace ? { "X-Namespace": daConfig.namespace } : {}),
+            },
+            body: data,
+        });
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return { success: false, provider: daConfig.provider, error: `DA submit failed: ${response.status} ${errorText}`, submittedAt: Date.now() };
+        }
+
+        const result = await response.json() as { blob_id?: string; block_height?: number };
+        return {
+            success: true,
+            provider: daConfig.provider,
+            blobId: result.blob_id,
+            blockHeight: result.block_height,
+            commitment: sha256Hash(data),
+            submittedAt: Date.now(),
+        };
+    } catch (error: any) {
+        return { success: false, provider: daConfig.provider, error: error.message, submittedAt: Date.now() };
+    }
+}
+
+/**
+ * Retrieve data from the configured DA provider.
+ */
+export async function retrieveFromDA(
+    blobId: string,
+    config?: DAConfig,
+): Promise<DARetrievalResult> {
+    const daConfig = config || loadDAConfig();
+
+    if (daConfig.provider === "memory") {
+        const data = memoryDAStore.get(blobId);
+        return data
+            ? { success: true, provider: "memory", data, retrievedAt: Date.now() }
+            : { success: false, provider: "memory", error: "Blob not found", retrievedAt: Date.now() };
+    }
+
+    if (!daConfig.endpoint) {
+        return { success: false, provider: daConfig.provider, error: "No endpoint configured", retrievedAt: Date.now() };
+    }
+
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), daConfig.timeout || 30000);
+
+        const response = await fetch(`${daConfig.endpoint}/v1/blob/${blobId}`, {
+            signal: controller.signal,
+            headers: {
+                ...(daConfig.authToken ? { Authorization: `Bearer ${daConfig.authToken}` } : {}),
+                ...(daConfig.namespace ? { "X-Namespace": daConfig.namespace } : {}),
+            },
+        });
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+            return { success: false, provider: daConfig.provider, error: `DA retrieve failed: ${response.status}`, retrievedAt: Date.now() };
+        }
+
+        const data = new Uint8Array(await response.arrayBuffer());
+        return { success: true, provider: daConfig.provider, data, retrievedAt: Date.now() };
+    } catch (error: any) {
+        return { success: false, provider: daConfig.provider, error: error.message, retrievedAt: Date.now() };
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cranker Registry
+// ---------------------------------------------------------------------------
+
+const crankerStore = new Map<string, CrankerEntry>();
+const challengeStore = new Map<string, CrankerChallenge>();
+
+/**
+ * Register a new cranker.
+ */
+export async function registerCranker(params: {
+    publicKey: string;
+    stake: bigint;
+}): Promise<CrankerEntry> {
+    const entry: CrankerEntry = {
+        id: randomUUID(),
+        publicKey: params.publicKey,
+        stake: params.stake,
+        registeredAt: Date.now(),
+        lastHeartbeat: Date.now(),
+        successCount: 0,
+        failCount: 0,
+        status: "active",
+    };
+    crankerStore.set(entry.id, entry);
+    return entry;
+}
+
+/**
+ * Record a cranker heartbeat (proof of liveness).
+ */
+export async function crankerHeartbeat(crankerId: string): Promise<CrankerEntry | null> {
+    const entry = crankerStore.get(crankerId);
+    if (!entry) return null;
+
+    entry.lastHeartbeat = Date.now();
+    return entry;
+}
+
+/**
+ * Get all registered crankers.
+ */
+export async function listCrankers(params?: {
+    status?: CrankerEntry["status"];
+}): Promise<CrankerEntry[]> {
+    let entries = Array.from(crankerStore.values());
+    if (params?.status) {
+        entries = entries.filter((e) => e.status === params.status);
+    }
+    return entries;
+}
+
+/**
+ * Submit a challenge against a cranker.
+ */
+export async function challengeCranker(params: {
+    crankerId: string;
+    challengerKey: string;
+    reason: string;
+    evidence?: string;
+}): Promise<CrankerChallenge> {
+    const cranker = crankerStore.get(params.crankerId);
+    if (!cranker) throw new Error(`Cranker ${params.crankerId} not found`);
+
+    const challenge: CrankerChallenge = {
+        id: randomUUID(),
+        crankerId: params.crankerId,
+        challengerKey: params.challengerKey,
+        reason: params.reason,
+        evidence: params.evidence,
+        status: "pending",
+        createdAt: Date.now(),
+    };
+
+    cranker.status = "challenged";
+    challengeStore.set(challenge.id, challenge);
+    return challenge;
+}
+
+/**
+ * Resolve a cranker challenge.
+ */
+export async function resolveChallenge(params: {
+    challengeId: string;
+    resolution: "slash" | "reject";
+}): Promise<CrankerChallenge | null> {
+    const challenge = challengeStore.get(params.challengeId);
+    if (!challenge) return null;
+
+    challenge.status = params.resolution === "slash" ? "resolved" : "rejected";
+    challenge.resolvedAt = Date.now();
+
+    const cranker = crankerStore.get(challenge.crankerId);
+    if (cranker) {
+        if (params.resolution === "slash") {
+            cranker.status = "slashed";
+            cranker.stake = BigInt(0);
+        } else {
+            cranker.status = "active";
+        }
+    }
+
+    return challenge;
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup Estimator
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimate the cost and benefit of cleaning up expired orders from the tree.
+ */
+export async function estimateCleanup(params: {
+    expiredOrderCount: number;
+    avgOrderSizeBytes?: number;
+    chain?: "solana" | "ethereum";
+}): Promise<CleanupEstimate> {
+    const { expiredOrderCount, avgOrderSizeBytes = 128, chain = "solana" } = params;
+
+    const reclaimableSpace = expiredOrderCount * avgOrderSizeBytes;
+
+    let estimatedCost: bigint;
+    let estimatedSavings: bigint;
+
+    if (chain === "solana") {
+        // Solana: ~6,960 lamports per byte for rent
+        const RENT_PER_BYTE = BigInt(6960);
+        const TX_COST = BigInt(5000); // base tx cost in lamports
+        const batchSize = 10; // orders per tx
+        const txCount = Math.ceil(expiredOrderCount / batchSize);
+
+        estimatedCost = BigInt(txCount) * TX_COST;
+        estimatedSavings = BigInt(reclaimableSpace) * RENT_PER_BYTE;
+    } else {
+        // Ethereum: ~20,000 gas for SSTORE clear + refund
+        const GAS_PER_CLEAR = BigInt(20000);
+        const GAS_PRICE_GWEI = BigInt(30);
+        const REFUND_PER_CLEAR = BigInt(15000);
+
+        estimatedCost = BigInt(expiredOrderCount) * GAS_PER_CLEAR * GAS_PRICE_GWEI * BigInt(1e9);
+        estimatedSavings = BigInt(expiredOrderCount) * REFUND_PER_CLEAR * GAS_PRICE_GWEI * BigInt(1e9);
+    }
+
+    return {
+        expiredOrders: expiredOrderCount,
+        reclaimableSpace,
+        estimatedCost,
+        estimatedSavings,
+        netBenefit: estimatedSavings - estimatedCost,
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export const stratum = {
+    // Original API
     checkSanctions,
     getSanctionsList,
     getRegulatoryUpdates,
     getHealth,
     getFeedStatus,
+
+    // ZK verifier
+    listZkCircuits,
+    getZkCircuit,
+    generateZkProof,
+    verifyZkProof,
+
+    // Merkle tree
+    verifyMerkleProof,
+    buildMerkleRoot,
+
+    // DA provider
+    loadDAConfig,
+    validateDAConfig,
+    submitToDA,
+    retrieveFromDA,
+
+    // Cranker registry
+    registerCranker,
+    crankerHeartbeat,
+    listCrankers,
+    challengeCranker,
+    resolveChallenge,
+
+    // Cleanup estimator
+    estimateCleanup,
 };

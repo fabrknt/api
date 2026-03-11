@@ -1,6 +1,6 @@
-# Accredit — KYC/AML Enforcement
+# Accredit — On-Chain KYC/AML Enforcement
 
-Plug-in KYC/AML enforcement, jurisdiction-gated access, and accredited investor verification for existing DeFi protocols.
+Chain-agnostic KYC/AML compliance infrastructure. On-chain transfer enforcement, compliant DEX routing, asset wrapping, and multi-provider KYC integration as reusable building blocks for regulated token applications.
 
 ## Endpoint
 
@@ -8,6 +8,15 @@ Plug-in KYC/AML enforcement, jurisdiction-gated access, and accredited investor 
 POST /api/quicknode/accredit/{apiKey}
 POST /api/accredit  (standalone)
 ```
+
+## Architecture
+
+Four layers:
+
+- **Core Layer** — Chain-agnostic compliance types and logic. KYC levels, jurisdiction checks, trade limits, whitelist/blacklist management.
+- **Routing Layer** — Compliance-aware DEX aggregation. Routes filtered through audited, whitelisted pools. Jupiter integration (Solana). Optional ZK proof support.
+- **Wrapper Layer** — Compliant asset wrapping. Wraps tokens (e.g., USDC, SOL) into KYC-gated Token-2022 equivalents (cUSDC, cSOL) with 1:1 backing.
+- **Identity Layer** — Multi-provider KYC integration (Civic Pass, World ID) with aggregation strategies. Institutional compliance dashboard.
 
 ## Methods
 
@@ -25,10 +34,6 @@ Check KYC verification status for an address.
 }
 ```
 
-**Parameters:**
-- `address` (required) — Wallet address
-- `jurisdictions` (optional) — Jurisdiction filter
-
 ### check_jurisdiction
 
 Verify whether an address is eligible to transact in a jurisdiction.
@@ -43,11 +48,6 @@ Verify whether an address is eligible to transact in a jurisdiction.
   }
 }
 ```
-
-**Parameters:**
-- `address` (required) — Wallet address
-- `jurisdiction` (required) — `MAS`, `SFC`, or `FSA`
-- `protocolType` (optional) — Protocol classification
 
 ### verify_accreditation
 
@@ -65,7 +65,7 @@ Check accredited investor status.
 
 ### check_transfer
 
-Validate transfer restrictions and Travel Rule compliance.
+Validate transfer restrictions and Travel Rule compliance via Token-2022 transfer hooks.
 
 ```json
 {
@@ -79,15 +79,9 @@ Validate transfer restrictions and Travel Rule compliance.
 }
 ```
 
-**Parameters:**
-- `from` (required) — Sender address
-- `to` (required) — Recipient address
-- `jurisdictions` (optional) — Applicable jurisdictions
-- `amountUsd` (optional) — Transfer amount for Travel Rule threshold checks
-
 ### register_kyc
 
-Register a KYC record for an address.
+Register a KYC record for an address with tiered levels.
 
 ```json
 {
@@ -102,12 +96,63 @@ Register a KYC record for an address.
 }
 ```
 
-**Parameters:**
-- `address` (required) — Wallet address
-- `kycLevel` (required) — KYC verification level (1-3)
-- `investorType` (required) — `retail`, `professional`, or `accredited`
-- `jurisdictions` (required) — Verified jurisdictions
-- `expiresInDays` (optional) — Expiry period
+### check_route_compliance
+
+Verify a DEX route passes only through audited, whitelisted pools.
+
+```json
+{
+  "method": "check_route_compliance",
+  "params": {
+    "route": ["pool_1", "pool_2", "pool_3"]
+  }
+}
+```
+
+## Solana Programs
+
+| Program | ID | Description |
+|---------|----|-------------|
+| Transfer Hook | `5DLH...gSL` | Token-2022 transfer hook — KYC enforcement on every transfer |
+| Compliant Registry | `66tK...nYA` | On-chain registry of audited DEX pools for route verification |
+| Compliant Wrapper | `CWRPx...j1L` | KYC-gated asset wrapping (deposit USDC, receive cUSDC) |
+| Sovereign | -- | Universal identity and multi-dimensional reputation |
+
+## KYC Levels
+
+| Level | Description | Per-Transaction Limit |
+|-------|-------------|----------------------|
+| Basic | Email + phone verification | 100,000 JPY |
+| Standard | Government ID document | 10,000,000 JPY |
+| Enhanced | Video call + address proof | 100,000,000 JPY |
+| Institutional | Corporate KYC/KYB | Unlimited |
+
+## KYC Providers
+
+- **Civic Pass** — On-chain gateway tokens for liveness, ID verification, and uniqueness
+- **World ID** — ZK proof-of-personhood via Worldcoin API
+- **Provider Aggregator** — Multi-provider consensus with strategies: `any`, `all`, `majority`, `highest`
+
+## Sovereign Identity
+
+Universal identity and multi-dimensional reputation protocol:
+- 5 reputation dimensions: Trading, Civic, Developer, Infra, Creator
+- Tiered progression: Bronze, Silver, Gold, Platinum, Diamond
+- Creator DAO extension and Admission Market extension
+
+## TypeScript Packages
+
+| Package | Description | Chain |
+|---------|-------------|-------|
+| `@accredit/core` | Shared type definitions (enums, interfaces, constants) | Agnostic |
+| `@accredit/sdk` | PDA derivation, KycClient, RegistryClient, WrapperClient | Solana |
+| `@accredit/router` | ComplianceAwareRouter, Jupiter integration, ZK proofs | Solana |
+| `@accredit/kyc-providers` | Multi-provider KYC integration (Civic, Worldcoin) | Agnostic |
+| `@accredit/institutional-ui` | Institutional compliance dashboard (React) | Solana |
+
+## QuickNode Add-on
+
+**Fabrknt On-Chain Compliance** (`fabrknt-onchain-compliance`) with Starter (free, route compliance + trust assessment) and Pro ($49/mo, all endpoints including on-chain KYC/identity reads).
 
 ## Plan Limits
 

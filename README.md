@@ -8,28 +8,28 @@ Plug-in compliance for DeFi protocols serving TradFi — delivered as REST APIs 
 
 | Product | Endpoint | What it does |
 |---------|----------|-------------|
-| **Complr** | `POST /api/quicknode/complr/[apiKey]` | Sanctions screening (OFAC, UN, EU, MAS, SFC, FSA), Travel Rule compliance, SAR/STR reporting, audit trails |
-| **Accredit** | `POST /api/accredit` | KYC/AML enforcement, jurisdiction-gated access, accredited investor verification, transfer restrictions, Travel Rule checks |
-| **Sentinel** | `POST /api/sentinel` | Pre-transaction threat detection (12 patterns), contract security scoring, MEV exposure analysis, DEX swap sandwich detection |
+| **Complr** | `POST /api/quicknode/complr/[apiKey]` | AI-powered compliance engine (MAS, SFC, FSA), OFAC/TRM Labs/Chainalysis screening, Travel Rule, SAR/STR generation, confidence scoring, human-in-the-loop review queue |
+| **Accredit** | `POST /api/accredit` | On-chain KYC/AML enforcement via Token-2022 transfer hooks, compliant DEX routing, asset wrapping (cUSDC/cSOL), multi-provider KYC (Civic, World ID), Sovereign identity |
+| **Sentinel** | `POST /api/sentinel` | Pre-transaction security analysis (17 patterns: 8 Solana + 9 EVM), simulation sandbox, execution pattern builders (DCA, grid, rebalance), Jito + Flashbots bundle management |
 
 ### Privacy
 
 | Product | Endpoint | What it does |
 |---------|----------|-------------|
-| **Veil** | `POST /api/veil` | ZK compliance proofs, AES-256-GCM encrypted PII storage, privacy framework assessment (GDPR/APPI/PDPA/CCPA), consent management |
+| **Veil** | `POST /api/veil` | Chain-agnostic NaCl Box encryption, Shamir secret sharing, Noir ZK proofs, encrypted swap orders for MEV protection, MCP server for AI agents, 5 Solana privacy apps |
 
 ### Data
 
 | Product | Endpoint | What it does |
 |---------|----------|-------------|
-| **Stratum** | `POST /api/stratum` | Live OFAC SDN sanctions feed, sanctions list aggregation, regulatory update feeds, data pipeline health monitoring |
+| **Stratum** | `POST /api/stratum` | Multi-chain state primitives (800x state reduction): Bitfield, Merkle, Expiry, Events, Resurrection. Solana (Anchor) + EVM (Solidity/Foundry) |
 
 ### DeFi
 
 | Product | Endpoint | What it does |
 |---------|----------|-------------|
-| **Tensor** | `POST /api/tensor` | Portfolio margin engine with Black-Scholes greeks, delta-netting (30%+ margin savings), intent solver for execution optimization |
-| **Tempest** | `POST /api/tempest` | Dynamic AMM fee curves (5 vol regimes), impermanent loss estimation, LP range optimization for concentrated liquidity |
+| **Tensor** | `POST /api/tensor` | Unified margin engine with Greeks-aware portfolio margining, vol surface interpolation, intent language, solver auctions, ZK credit scores, identity-gated leverage |
+| **Tempest** | `POST /api/tempest` | Uniswap v4 volatility-responsive dynamic fee hook with keeper, staleness fail-safe, dust filter, momentum adjustment, chain-agnostic core SDK |
 
 ## API Reference
 
@@ -48,9 +48,13 @@ All endpoints accept JSON-RPC style requests:
 
 | Method | Params | Description |
 |--------|--------|-------------|
-| `screen_wallet` | `address`, `jurisdictions?` | Screen wallet against sanctions lists |
-| `screen_pool` | `protocol`, `poolId`, `jurisdictions?` | Check protocol/pool compliance |
-| `check_allocation` | `allocations[]` | Portfolio compliance alerts |
+| `screen_wallet` | `address`, `jurisdictions?`, `chain?` | Screen wallet against OFAC/TRM Labs/Chainalysis (multi-chain, auto-detect) |
+| `check_transaction` | `transactionId`, `senderWallet`, `recipientWallet`, `amount`, `currency`, `chain?` | Single transaction compliance check across MAS/SFC/FSA |
+| `check_batch` | `transactions[]` | Batch check up to 50 transactions in parallel |
+| `query` | `question`, `jurisdiction?` | Regulatory knowledge base query with AI-powered answers |
+| `query_confident` | `question`, `jurisdiction?` | Query with confidence scoring, citations, hallucination detection |
+| `generate_report` | `transactionId`, `jurisdiction`, `reportType` | Auto-draft SAR/STR in regulator-specific formats |
+| `analyze_obligations` | `document`, `jurisdiction?` | Extract structured obligations from regulatory documents |
 
 ### Accredit Methods
 
@@ -66,39 +70,44 @@ All endpoints accept JSON-RPC style requests:
 
 | Method | Params | Description |
 |--------|--------|-------------|
-| `analyze_transaction` | `from`, `to`, `data?`, `value?`, `chain?` | Detect threats in pending transactions |
-| `analyze_contract` | `address`, `chain?` | Security scoring for smart contracts |
-| `analyze_mev` | `txHash`, `chain?` | MEV exposure analysis |
+| `analyze_transaction` | `transaction`, `mode?`, `riskTolerance?` | Detect threats using 17 patterns (8 Solana + 9 EVM) |
+| `simulate_transaction` | `transaction`, `rpcUrl?` | Pre-execution simulation with automatic fallback |
+| `build_pattern` | `pattern`, `params` | Build execution plans (batch payout, DCA, grid, rebalance, vesting) |
+| `submit_bundle` | `chain`, `transactions`, `blockNumber?` | Submit atomic bundles via Jito (Solana) or Flashbots (EVM) |
 
 ### Veil Methods
 
 | Method | Params | Description |
 |--------|--------|-------------|
-| `generate_proof` | `address`, `proofType`, `claims?` | Generate ZK compliance proof |
-| `verify_proof` | `proofId`, `proofHash` | Verify an existing proof |
-| `encrypt_data` | `data`, `accessPolicy[]`, `expiresInDays?` | AES-256-GCM encrypt PII for compliant storage |
-| `assess_privacy` | `address`, `frameworks[]`, `dataCategories?` | Privacy framework assessment |
-| `record_consent` | `address`, `purpose`, `framework`, `granted`, `expiresInDays?` | Record user consent |
-| `get_consent` | `address`, `purpose?` | Retrieve consent records |
+| `generate_keypair` | -- | Generate random NaCl Box encryption keypair |
+| `derive_keypair` | `seed` | Derive deterministic keypair from 32-byte seed |
+| `encrypt` | `plaintext`, `recipientPublicKey`, `senderSecretKey`, `senderPublicKey` | NaCl Box encrypt |
+| `decrypt` | `bytes`, `senderPublicKey`, `recipientSecretKey`, `recipientPublicKey` | NaCl Box decrypt |
+| `encrypt_multiple` | `plaintext`, `recipientPublicKeys[]`, `senderSecretKey`, `senderPublicKey` | Encrypt for multiple recipients |
+| `shamir_split` | `secret`, `threshold`, `totalShares` | Split secret into M-of-N Shamir shares |
+| `shamir_combine` | `shares[]` | Reconstruct secret from Shamir shares |
+| `encrypt_order` | `minOutputAmount`, `slippageBps`, `deadline`, `solverPublicKey`, `userSecretKey`, `userPublicKey` | Encrypt DEX swap order for MEV protection |
+| `decrypt_order` | `bytes`, `userPublicKey`, `solverSecretKey`, `solverPublicKey` | Decrypt encrypted swap order |
 
 ### Stratum Methods
 
 | Method | Params | Description |
 |--------|--------|-------------|
-| `check_sanctions` | `address` | Check address against live OFAC SDN + aggregated sanctions lists |
-| `get_sanctions_list` | `listSource?`, `limit?` | Browse sanctions list entries |
-| `get_regulatory_updates` | `jurisdiction?`, `impact?`, `limit?` | Latest regulatory changes |
-| `get_health` | — | Data pipeline health status |
-| `get_feed_status` | `feedId` | Individual feed status |
+| `merkle_build` | `leaves[]` | Build a Merkle tree from a set of leaves |
+| `merkle_proof` | `treeId`, `leafIndex` | Generate an inclusion proof for a leaf |
+| `merkle_verify` | `proof[]`, `root`, `leaf` | Verify a proof against a root |
+| `bitfield_create` | `capacity` | Create a new bitfield for compact state tracking |
+| `bitfield_set` | `bitfieldId`, `index` | Set a bit in a bitfield |
+| `bitfield_check` | `bitfieldId`, `index` | Check whether a bit is set |
 
 ### Tensor Methods
 
 | Method | Params | Description |
 |--------|--------|-------------|
-| `compute_greeks` | `asset`, `spot`, `strike`, `expiry`, `optionType`, `iv?` | Black-Scholes greeks + theoretical price |
-| `calculate_margin` | `positions[]` | Portfolio margin with delta-netting |
-| `solve_intent` | `orders[]`, `currentPositions?` | Optimize execution order for a set of orders |
-| `analyze_risk` | `positions[]` | Portfolio-level VaR, liquidation price, risk warnings |
+| `compute_greeks` | `asset`, `spot`, `strike`, `expiry`, `optionType`, `iv?` | Black-Scholes greeks with optional vol surface interpolation |
+| `calculate_margin` | `positions[]` | Greeks-aware portfolio margin with delta-netting, gamma/vega charges |
+| `solve_intent` | `orders[]`, `currentPositions?` | Decompose multi-leg intents into optimal execution sequences |
+| `analyze_risk` | `positions[]` | Portfolio-level VaR, liquidation price, gamma concentration limits |
 
 #### Position Object
 
@@ -130,13 +139,13 @@ All endpoints accept JSON-RPC style requests:
 
 #### Volatility Regimes
 
-| Regime | Annualized Vol | Default Fee (bps) |
-|--------|---------------|-------------------|
-| `very_low` | 0–20% | 5 |
-| `low` | 20–40% | 10 |
-| `medium` | 40–70% | 30 |
-| `high` | 70–120% | 60 |
-| `extreme` | 120%+ | 100 |
+| Regime | Annualized Vol | Fee Range (bps) |
+|--------|---------------|-----------------|
+| `very_low` | < 20% | 5-10 |
+| `low` | 20-35% | 10-30 |
+| `normal` | 35-50% | 30-60 |
+| `high` | 50-75% | 60-150 |
+| `extreme` | > 75% | 150-500 |
 
 ## QuickNode Marketplace
 
@@ -176,8 +185,8 @@ Where `{product}` is one of: `complr`, `accredit`, `sentinel`, `veil`, `stratum`
 - **Database:** PostgreSQL (Supabase) via Prisma 7
 - **Language:** TypeScript
 - **Hosting:** Vercel
-- **Encryption:** AES-256-GCM (Veil)
-- **Sanctions Data:** Live OFAC SDN feed from US Treasury (24h cache)
+- **Encryption:** NaCl Box / Curve25519-XSalsa20-Poly1305 (Veil)
+- **Sanctions Data:** Multi-provider (OFAC SDN, TRM Labs, Chainalysis)
 
 ## Development
 
@@ -205,13 +214,13 @@ VEIL_MASTER_KEY=your-encryption-key
 ```
 src/
   lib/
-    complr/          Sanctions screening, Travel Rule, audit trails
-    accredit/        KYC enforcement, jurisdiction controls, Travel Rule
-    sentinel/        Pre-tx threat detection, contract scoring, MEV analysis
-    veil/            AES-256-GCM encryption, ZK proofs, privacy compliance
-    stratum/         Live OFAC SDN feed, regulatory updates, pipeline health
-    tensor/          Portfolio margin, Black-Scholes greeks, intent solver
-    tempest/         Dynamic AMM fees, IL estimation, LP range optimization
+    complr/          AI compliance engine (MAS/SFC/FSA), screening, SAR/STR, confidence scoring
+    accredit/        On-chain KYC enforcement, transfer hooks, compliant routing, asset wrapping
+    sentinel/        17-pattern threat detection, simulation sandbox, execution patterns, bundles
+    veil/            NaCl encryption, Shamir sharing, ZK proofs, encrypted orders, MCP server
+    stratum/         Multi-chain state primitives: Merkle, Bitfield, Expiry, Events, Resurrection
+    tensor/          Unified margin engine, Greeks, vol surface, intents, solver auctions
+    tempest/         Uniswap v4 dynamic fee hook, keeper, vol regimes, LP optimization
     quicknode/       QuickNode Basic Auth middleware
     db.ts            Prisma client
   app/
@@ -225,7 +234,7 @@ src/
       tempest/       Tempest API
 ```
 
-Stratum provides the shared data layer — Complr uses `stratum.checkSanctions()` for wallet screening, and other products can tap into Stratum for sanctions data and regulatory feeds.
+Each product is a standalone service that works independently or together. Stratum provides state primitives (Merkle, Bitfield) used by other products for data integrity. Complr handles off-chain compliance while Accredit handles on-chain enforcement.
 
 ## Documentation
 

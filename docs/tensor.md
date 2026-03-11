@@ -1,6 +1,6 @@
-# Tensor — Portfolio Margin Engine
+# Tensor — Unified Margin Engine
 
-Plug-in portfolio margin with Black-Scholes greeks, delta-netting (30%+ margin savings), and intent solver for execution optimization.
+Unified margin engine with Greeks-aware portfolio margining across perpetuals, options, spot, and lending. Volatility surface interpolation, intent language for multi-leg trades, solver auctions, and ZK credit scores.
 
 ## Endpoint
 
@@ -13,7 +13,7 @@ POST /api/tensor  (standalone)
 
 ### compute_greeks
 
-Calculate Black-Scholes greeks and theoretical price for an option.
+Calculate Black-Scholes greeks and theoretical price for an option, with optional vol surface interpolation.
 
 ```json
 {
@@ -56,7 +56,7 @@ Calculate Black-Scholes greeks and theoretical price for an option.
 
 ### calculate_margin
 
-Calculate portfolio margin with delta-netting across positions.
+Calculate portfolio margin with delta-netting across positions. Greeks-aware risk engine with gamma and vega charges.
 
 ```json
 {
@@ -72,17 +72,9 @@ Calculate portfolio margin with delta-netting across positions.
 
 **Position types:** `perp`, `option`, `spot`, `lending`
 
-**Margin rates:**
-| Type | Initial | Maintenance |
-|------|---------|-------------|
-| Perp | 10% | 5% |
-| Option | 15% | 10% |
-| Spot | 100% | 100% |
-| Lending | 20% | 15% |
-
 ### solve_intent
 
-Optimize execution order for a set of orders to minimize margin impact.
+Optimize execution order for a multi-leg trading intent. The solver decomposes intents into optimal execution sequences, ordering hedging legs first to minimize peak margin.
 
 ```json
 {
@@ -111,6 +103,33 @@ Portfolio-level risk analysis with VaR estimation and liquidation prices.
   }
 }
 ```
+
+## Key Features
+
+- **Portfolio Margining** — Delta-netting across spot, perps, and options reduces margin for hedged positions to near zero
+- **Greeks-Aware Risk** — Gamma and vega charges capture non-linear option risk. Theta decay tracked.
+- **Volatility Surface** — Bilinear interpolation over moneyness x expiry grid (9 strikes, 4 tenors)
+- **Dynamic Gamma Margin** — Gamma margin scales up when realized vol exceeds implied vol (capped at 5x base)
+- **Gamma Concentration Limits** — Per-account and per-market gamma limits tiered by investor category (Retail/Qualified/Institutional)
+- **Intent Language** — Declarative multi-leg trading intents (delta-neutral spread, covered call) with constraint validation
+- **Solver Auctions** — Decentralized intent execution via competitive bidding with collateral staking and slashing
+- **ZK Credit Scores** — Privacy-preserving credit tiers (Bronze through Platinum) reducing initial margin by up to 20%
+- **Identity-Gated Leverage** — Sovereign reputation tiers map to investor categories (Retail 5x, Qualified 20x, Institutional 50x)
+- **374 tests** (249 Rust + 125 TypeScript), all passing
+
+## Chain-Agnostic Core
+
+Core algorithm crates (`tensor-types`, `tensor-math`, `tensor-intents`, `tensor-solver`) are chain-agnostic with an `anchor` feature flag controlling Solana dependencies.
+
+## Keeper Bots
+
+- **Crank Bot** — Settles expired solver auctions and refreshes stale margin accounts
+- **Vol Surface Keeper** — Reads oracle variance, builds vol surfaces, updates on-chain
+- **Liquidation Bot** — Scans for undercollateralized accounts and liquidates them
+
+## QuickNode Add-on
+
+**Fabrknt Margin Engine** (`fabrknt-margin-engine`) with endpoints for margin calculations, Greeks computation, and multi-leg trading intents.
 
 ## Plan Limits
 

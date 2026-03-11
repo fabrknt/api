@@ -1,6 +1,6 @@
-# Tempest — Dynamic AMM Fee Engine
+# Tempest — Volatility-Responsive Dynamic Fee Hook
 
-Plug-in dynamic AMM fee curves, impermanent loss estimation, and LP range optimization for concentrated liquidity.
+Uniswap v4 hook that dynamically adjusts swap fees based on real-time realized volatility. Protects LPs during vol spikes and attracts volume during calm markets. Chain-agnostic core SDK with EVM and Solana adapters.
 
 ## Endpoint
 
@@ -47,13 +47,13 @@ Classify current volatility into one of 5 regimes.
 
 **Volatility Regimes:**
 
-| Regime | Annualized Vol | Default Fee (bps) |
-|--------|---------------|-------------------|
-| `very_low` | 0–20% | 5 |
-| `low` | 20–40% | 10 |
-| `medium` | 40–70% | 30 |
-| `high` | 70–120% | 60 |
-| `extreme` | 120%+ | 100 |
+| Regime | Vol Range (bps) | Annualized | Fee Range (bps) | Rationale |
+|--------|----------------|------------|-----------------|-----------|
+| `very_low` | 0-2000 | < 20% | 5-10 | Attract volume in calm markets |
+| `low` | 2000-3500 | 20-35% | 10-30 | Standard competitive fee |
+| `normal` | 3500-5000 | 35-50% | 30-60 | Moderate LP compensation |
+| `high` | 5000-7500 | 50-75% | 60-150 | Compensate LPs for IL risk |
+| `extreme` | > 7500 | > 75% | 150-500 | Circuit breaker / LP protection |
 
 ### get_fee_curve
 
@@ -70,7 +70,7 @@ Get the full piecewise-linear fee curve across the volatility range.
 
 ### estimate_il
 
-Estimate impermanent loss with fee offset for a given price change.
+Estimate impermanent loss for a concentrated liquidity position.
 
 ```json
 {
@@ -85,16 +85,9 @@ Estimate impermanent loss with fee offset for a given price change.
 }
 ```
 
-**Parameters:**
-- `pair` (required) — Trading pair
-- `priceChangeRatio` (required) — Expected price change (e.g., 0.3 = 30%)
-- `liquidity` (optional) — Pool liquidity in USD
-- `dailyVolume` (optional) — Daily trading volume in USD
-- `feeBps` (optional) — Fee in basis points
-
 ### optimize_lp_range
 
-Get LP range recommendation for concentrated liquidity positions.
+Get LP range recommendation for concentrated liquidity positions based on current volatility.
 
 ```json
 {
@@ -109,12 +102,32 @@ Get LP range recommendation for concentrated liquidity positions.
 }
 ```
 
-**Parameters:**
-- `pair` (required) — Trading pair
-- `currentPrice` (required) — Current price
-- `volatility` (required) — Annualized volatility
-- `timeHorizon` (optional) — Holding period in days (default: 7)
-- `riskTolerance` (optional) — `conservative`, `medium`, `aggressive`
+## Resilience Mechanisms
+
+- **Keeper Fail-Safe** — If no volatility update within `staleFeeThreshold` (default 1 hour), fees automatically escalate to cap (500 bps) to protect LPs
+- **Dust Trade Filter** — Per-pool `minSwapSize` prevents vol manipulation via tiny swaps
+- **Momentum Adjustment** — Fee boosted up to 50% when current vol exceeds 7-day EMA
+- **Dynamic Keeper Rewards** — Reward scales with gas price to ensure keeper profitability at any congestion level
+
+## SDK Packages
+
+| Package | Description |
+|---------|-------------|
+| `@tempest/core` | Chain-agnostic types, algorithms, and client (zero dependencies) |
+| `@tempest/evm` | EVM adapter implementing ChainAdapter via viem |
+| `@tempest/solana` | Solana adapter scaffold (awaiting program deployment) |
+| `@tempest/qn-addon` | QuickNode Marketplace add-on (`fabrknt-dynamic-fees`) |
+
+## Contracts
+
+- **TickObserver** — Gas-optimized circular buffer (4 obs/slot, 1024 capacity)
+- **VolatilityEngine** — Annualized realized vol, regime classification, EMA smoothing
+- **FeeCurve** — Piecewise linear vol-to-fee mapping with 6 governance-adjustable control points
+- **TempestHook** — Main Uniswap v4 hook (afterInitialize, beforeSwap, afterSwap, updateVolatility)
+
+## QuickNode Add-on
+
+**Fabrknt Dynamic Fees** (`fabrknt-dynamic-fees`) with endpoints for volatility computation, regime classification, fee calculation, fee simulation, LP range, and IL estimation.
 
 ## Plan Limits
 

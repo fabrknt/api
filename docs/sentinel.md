@@ -1,6 +1,6 @@
-# Sentinel — Pre-Transaction Security
+# Sentinel — DeFi Security Infrastructure
 
-Plug-in pre-transaction threat detection, contract security scoring, and MEV protection for existing DeFi protocols.
+Chain-agnostic DeFi security infrastructure. Transaction security analysis with 17 pattern detectors, pre-execution simulation sandbox, execution pattern builders, and atomic bundle management (Jito + Flashbots).
 
 ## Endpoint
 
@@ -13,71 +13,128 @@ POST /api/sentinel  (standalone)
 
 ### analyze_transaction
 
-Detect threats in a pending transaction before execution.
+Detect threats in a pending transaction before execution using 17 pattern detectors across Solana and EVM.
 
 ```json
 {
   "method": "analyze_transaction",
   "params": {
-    "from": "0xabc...",
-    "to": "0xdef...",
-    "data": "0x...",
-    "value": "1000000000000000000",
-    "chain": "ethereum"
+    "transaction": {
+      "id": "tx1",
+      "chain": "evm",
+      "status": "pending",
+      "instructions": [
+        { "programId": "0xContract", "keys": [], "data": "0x12345678" }
+      ]
+    },
+    "mode": "block",
+    "riskTolerance": "strict"
   }
 }
 ```
 
 **Parameters:**
-- `from` (required) — Sender address
-- `to` (required) — Recipient/contract address
-- `data` (optional) — Transaction calldata
-- `value` (optional) — Transaction value in wei
-- `chain` (optional) — `ethereum` or `solana`
+- `transaction` (required) — Transaction object with chain, instructions
+- `chain` (required in transaction) — `evm` or `solana`
+- `mode` (optional) — `block` or `warn`
+- `riskTolerance` (optional) — `strict`, `moderate`, `permissive`
 
-**Detection Patterns (12):**
-- Known malicious addresses (Ronin, Wormhole, Euler exploiters, Tornado Cash)
-- Flash loan signatures
-- High-risk function selectors (approve, transferOwnership, upgradeTo, selfdestruct)
-- DEX sandwich attack indicators
-- Reentrancy patterns
-- Unusual value transfers
+### Solana Patterns (P-101 - P-108)
 
-### analyze_contract
+| Pattern | ID | Severity |
+|---------|----|----------|
+| Mint authority kill | P-101 | Critical |
+| Freeze authority kill | P-102 | Critical |
+| Signer mismatch | P-103 | Warning |
+| Dangerous account close | P-104 | Alert |
+| Malicious Transfer Hook | P-105 | Critical |
+| Unexpected hook execution | P-106 | Alert |
+| Hook reentrancy | P-107 | Critical |
+| Excessive hook accounts | P-108 | Warning |
 
-Security scoring for a smart contract address.
+### EVM Patterns (EVM-001 - EVM-009)
+
+| Pattern | ID | Severity |
+|---------|----|----------|
+| Reentrancy attack | EVM-001 | Critical |
+| Flash loan attack | EVM-002 | Critical |
+| Front-running / sandwich | EVM-003 | Alert |
+| Unauthorized access | EVM-004 | Warning/Critical |
+| Price manipulation | EVM-005 | Critical |
+| Proxy upgrade | EVM-006 | Alert |
+| Approval abuse | EVM-007 | Warning |
+| Honeypot token | EVM-008 | Critical |
+| Governance attack | EVM-009 | Alert |
+
+### simulate_transaction
+
+Pre-execution simulation with automatic fallback.
 
 ```json
 {
-  "method": "analyze_contract",
+  "method": "simulate_transaction",
   "params": {
-    "address": "0x1234...",
-    "chain": "ethereum"
+    "transaction": { "id": "tx1", "chain": "evm", "instructions": [...] },
+    "rpcUrl": "https://eth-mainnet.example.com"
   }
 }
 ```
 
-**Parameters:**
-- `address` (required) — Contract address
-- `chain` (optional) — `ethereum` or `solana`
+- **EVM**: `eth_call` -> `eth_estimateGas` -> `trace_call` (Parity) -> `debug_traceCall` (Geth)
+- **Solana**: `simulateTransaction` with post-simulation account state comparison
 
-### analyze_mev
+Features: revert reason decoding, bytecode opcode scanning, EIP-1167/EIP-1967 proxy detection, honeypot analysis, state change tracking.
 
-MEV exposure analysis for a submitted transaction.
+### build_pattern
+
+Build execution plans for common DeFi operations.
+
+| Pattern | Description |
+|---------|-------------|
+| Batch Payout | Optimized multi-recipient payout batching |
+| Recurring Payment | Payment schedule builder |
+| Token Vesting | Cliff + linear vesting schedule |
+| Grid Trading | Buy/sell grid level planning |
+| DCA | Dollar-cost averaging schedule |
+| Rebalance | Portfolio rebalancing with drift detection |
+
+### submit_bundle
+
+Submit atomic transaction bundles via Jito (Solana) or Flashbots (EVM).
 
 ```json
 {
-  "method": "analyze_mev",
+  "method": "submit_bundle",
   "params": {
-    "txHash": "0xabc123...",
-    "chain": "ethereum"
+    "chain": "evm",
+    "transactions": ["0xSignedTx1"],
+    "blockNumber": 19000000
   }
 }
 ```
 
-**Parameters:**
-- `txHash` (required) — Transaction hash
-- `chain` (optional) — `ethereum` or `solana`
+**EVM bundles** use Flashbots/MEV-Share with full AuthSigner protocol (EIP-191 signing).
+**Solana bundles** use Jito Block Engine with tip management and region routing.
+
+## Oracle Registry
+
+Dynamic oracle feed resolution via Chainlink Feed Registry for price manipulation detection (EVM-005).
+
+## QuickNode Add-on
+
+**Fabrknt DeFi Toolkit** (`fabrknt-defi-toolkit`) with Starter (guard, simulation, patterns) and Pro (all + bundle submission) plans.
+
+| Feature | Starter | Pro |
+|---------|---------|-----|
+| Guard (17 patterns) | Yes | Yes |
+| Simulation sandbox | Yes | Yes |
+| Execution patterns | Yes | Yes |
+| Bundle submission | No | Yes |
+| Rate limit | 100 req/min | 200 req/min |
+
+## Tests
+
+185 tests passing (151 core + 34 add-on).
 
 ## Plan Limits
 

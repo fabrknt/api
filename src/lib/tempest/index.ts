@@ -2,10 +2,15 @@
  * Tempest — Dynamic AMM Fee Engine.
  *
  * - Volatility regime classification (5 levels)
- * - Dynamic fee estimation with piecewise-linear interpolation
- * - Impermanent loss estimation
+ * - Dynamic fee estimation with piecewise-linear interpolation (6 breakpoints)
+ * - Impermanent loss estimation (full-range + concentrated liquidity)
  * - LP range optimization for concentrated liquidity
  * - Fee curve configuration
+ * - Chain-agnostic ChainAdapter interface (solana, evm)
+ * - Keeper fail-safe (escalates fees if keeper goes down)
+ * - Dust filter (minimum fee threshold)
+ * - Momentum boost (up to 50% during vol spikes)
+ * - Dynamic keeper rewards
  */
 
 import type {
@@ -16,7 +21,17 @@ import type {
     ILEstimate,
     LPRangeOptimization,
     FeeCurveConfig,
+    OnChainFeeConfig,
+    VolState,
+    RecommendedRange,
+    Chain,
+    ChainAdapter,
+    KeeperConfig,
+    KeeperStatus,
+    Regime,
 } from "./types";
+
+export { Regime, REGIME_NAMES, REGIME_COLORS } from "./types";
 
 // ---------------------------------------------------------------------------
 // Volatility regime thresholds (annualized vol)
@@ -30,7 +45,7 @@ const REGIME_THRESHOLDS: Record<VolRegime, { min: number; max: number }> = {
     extreme: { min: 1.20, max: Infinity },   // 120%+
 };
 
-// Default fee curve: regime → fee in basis points
+// Default fee curve: regime -> fee in basis points
 const DEFAULT_FEE_CURVE: Record<VolRegime, number> = {
     very_low: 5,    // 0.05%
     low: 10,        // 0.10%
@@ -49,6 +64,36 @@ const DEFAULT_CONFIG: FeeCurveConfig = {
 };
 
 // ---------------------------------------------------------------------------
+// On-chain fee config (6 breakpoints, vol in bps, fee in bps)
+// From @tempest/core DEFAULT_FEE_CONFIG
+// ---------------------------------------------------------------------------
+
+/**
+ * Default on-chain fee config with 6 piecewise-linear breakpoints.
+ * Breakpoints (vol in bps, fee in bps):
+ *   0 ->  1 bps fee   (very-low vol)
+ * 200 ->  5 bps fee   (low vol)
+ * 500 -> 30 bps fee   (normal vol)
+ * 1500 -> 60 bps fee  (high vol)
+ * 3000 -> 100 bps fee (extreme vol)
+ * 10000 -> 100 bps fee (cap)
+ */
+export const DEFAULT_ONCHAIN_FEE_CONFIG: OnChainFeeConfig = {
+    vol0: 0n,
+    fee0: 1,
+    vol1: 200n,
+    fee1: 5,
+    vol2: 500n,
+    fee2: 30,
+    vol3: 1500n,
+    fee3: 60,
+    vol4: 3000n,
+    fee4: 100,
+    vol5: 10000n,
+    fee5: 100,
+};
+
+// ---------------------------------------------------------------------------
 // Volatility regime classification
 // ---------------------------------------------------------------------------
 
@@ -60,14 +105,22 @@ function classifyRegime(volatility: number): VolRegime {
     return "extreme";
 }
 
+/**
+ * Classify a volatility reading in bps into a Regime enum value.
+ * Matches @tempest/core classifyRegime semantics.
+ */
+export function classifyRegimeBps(volBps: number): number {
+    if (volBps < 200) return 0;  // VeryLow
+    if (volBps < 500) return 1;  // Low
+    if (volBps < 1500) return 2; // Normal
+    if (volBps < 3000) return 3; // High
+    return 4;                    // Extreme
+}
+
 function volPercentile(volatility: number): number {
-    // Approximate percentile assuming log-normal vol distribution
-    // Median crypto vol ~60%, std ~30%
     const median = 0.60;
     const std = 0.30;
     const z = (volatility - median) / std;
-
-    // Simple sigmoid approximation of CDF
     const percentile = 100 / (1 + Math.exp(-1.7 * z));
     return Math.round(Math.min(Math.max(percentile, 0), 100));
 }
@@ -91,27 +144,59 @@ export async function classifyVolRegime(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Dynamic fee estimation
+// Piecewise-linear fee interpolation (on-chain format)
+// ---------------------------------------------------------------------------
+
+/**
+ * Piecewise-linear interpolation of vol (in bps) to fee (in bps).
+ * Uses the 6-breakpoint on-chain format from @tempest/core.
+ */
+export function interpolateFeeBps(
+    volBps: number,
+    config: OnChainFeeConfig = DEFAULT_ONCHAIN_FEE_CONFIG,
+): number {
+    const breakpoints: Array<{ vol: number; fee: number }> = [
+        { vol: Number(config.vol0), fee: config.fee0 },
+        { vol: Number(config.vol1), fee: config.fee1 },
+        { vol: Number(config.vol2), fee: config.fee2 },
+        { vol: Number(config.vol3), fee: config.fee3 },
+        { vol: Number(config.vol4), fee: config.fee4 },
+        { vol: Number(config.vol5), fee: config.fee5 },
+    ];
+
+    if (volBps <= breakpoints[0].vol) return breakpoints[0].fee;
+    if (volBps >= breakpoints[breakpoints.length - 1].vol) return breakpoints[breakpoints.length - 1].fee;
+
+    for (let i = 1; i < breakpoints.length; i++) {
+        const lo = breakpoints[i - 1];
+        const hi = breakpoints[i];
+        if (volBps >= lo.vol && volBps < hi.vol) {
+            const t = (volBps - lo.vol) / (hi.vol - lo.vol);
+            return lo.fee + t * (hi.fee - lo.fee);
+        }
+    }
+
+    return breakpoints[breakpoints.length - 1].fee;
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic fee estimation (original API, preserved)
 // ---------------------------------------------------------------------------
 
 function interpolateFee(volatility: number, config: FeeCurveConfig = DEFAULT_CONFIG): number {
     const regime = classifyRegime(volatility);
     const regimes: VolRegime[] = ["very_low", "low", "medium", "high", "extreme"];
-    const idx = regimes.indexOf(regime);
 
-    // Piecewise-linear interpolation between regime midpoints
     const midpoints = regimes.map((r) => {
         const t = REGIME_THRESHOLDS[r];
         return r === "extreme" ? t.min + 0.3 : (t.min + t.max) / 2;
     });
     const fees = regimes.map((r) => DEFAULT_FEE_CURVE[r]);
 
-    // Apply sensitivity scaling
     const scaledFees = fees.map((f) =>
         config.baseFee + (f - config.baseFee) * config.sensitivity * 2,
     );
 
-    // Find interpolation segment
     if (volatility <= midpoints[0]) return Math.max(scaledFees[0], config.baseFee);
     if (volatility >= midpoints[midpoints.length - 1]) return Math.min(scaledFees[scaledFees.length - 1], config.maxFee);
 
@@ -144,7 +229,7 @@ export async function estimateFee(params: {
         totalFee: baseFee + Math.max(dynamicFee, 0),
         regime,
         volatility,
-        confidence: volatility > 0 ? 85 : 50, // lower confidence without real data
+        confidence: volatility > 0 ? 85 : 50,
         estimatedAt: Date.now(),
     };
 }
@@ -159,15 +244,13 @@ export async function getFeeCurve(params: {
 }): Promise<FeeCurve> {
     const { pair, config = DEFAULT_CONFIG } = params;
 
-    // Generate curve points across vol range
     const volPoints = [0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 1.0, 1.2, 1.5, 2.0];
     const points = volPoints.map((vol) => ({
         vol,
         fee: interpolateFee(vol, config),
     }));
 
-    // Current regime for the pair
-    const regime = classifyRegime(config.sensitivity * 0.80); // default to medium assumption
+    const regime = classifyRegime(config.sensitivity * 0.80);
 
     return {
         pair,
@@ -183,12 +266,32 @@ export async function getFeeCurve(params: {
 // Impermanent loss estimation
 // ---------------------------------------------------------------------------
 
+/**
+ * Estimate IL for concentrated liquidity (from @tempest/core lp.ts).
+ * Uses the simplified IL formula: IL ~ vol^2 * time / (2 * rangeWidth^2)
+ */
+export function estimateConcentratedIL(
+    volBps: number,
+    rangeLower: number,
+    rangeUpper: number,
+    holdingPeriodDays: number = 30,
+): number {
+    const rangeWidth = rangeUpper - rangeLower;
+    if (rangeWidth <= 0) return 0;
+
+    const volFraction = volBps / 10000;
+    const timeInYears = holdingPeriodDays / 365.25;
+
+    const il = (volFraction * volFraction * timeInYears * 100) / (2 * (rangeWidth / 10000) * (rangeWidth / 10000));
+    return Math.min(il, 100);
+}
+
 export async function estimateIL(params: {
     pair: string;
     priceChangeRatio: number;
-    liquidity?: number;       // USD value of LP position
-    dailyVolume?: number;     // USD daily trading volume
-    feeBps?: number;          // current fee in basis points
+    liquidity?: number;
+    dailyVolume?: number;
+    feeBps?: number;
 }): Promise<ILEstimate> {
     const {
         pair,
@@ -198,21 +301,16 @@ export async function estimateIL(params: {
         feeBps = 30,
     } = params;
 
-    // IL formula: IL = 2 * sqrt(r) / (1 + r) - 1, where r = price ratio
     const r = priceChangeRatio;
     const ilFraction = 2 * Math.sqrt(r) / (1 + r) - 1;
     const ilPercent = Math.abs(ilFraction) * 100;
 
-    // Value comparison
-    const holdValue = liquidity * (1 + r) / 2; // 50/50 portfolio
-    const lpValue = liquidity * Math.sqrt(r) / ((1 + r) / 2) * ((1 + r) / 2);
-    // Simplified: lpValue = liquidity * 2 * sqrt(r) / (1 + r)
+    const holdValue = liquidity * (1 + r) / 2;
     const lpValueCorrected = liquidity * 2 * Math.sqrt(r) / (1 + r);
     const ilAbsolute = Math.abs(holdValue - lpValueCorrected);
 
-    // Fee estimation
     const feeRate = feeBps / 10000;
-    const lpShare = liquidity / (liquidity + dailyVolume * 0.1); // rough share of pool
+    const lpShare = liquidity / (liquidity + dailyVolume * 0.1);
     const dailyFees = dailyVolume * feeRate * lpShare;
     const breakEvenDays = dailyFees > 0 ? Math.ceil(ilAbsolute / dailyFees) : Infinity;
 
@@ -223,7 +321,7 @@ export async function estimateIL(params: {
         ilAbsolute: Math.round(ilAbsolute * 100) / 100,
         holdValue: Math.round(holdValue * 100) / 100,
         lpValue: Math.round(lpValueCorrected * 100) / 100,
-        feesEarned: Math.round(dailyFees * 30 * 100) / 100,  // 30-day estimate
+        feesEarned: Math.round(dailyFees * 30 * 100) / 100,
         netPnl: Math.round((dailyFees * 30 - ilAbsolute) * 100) / 100,
         breakEvenDays: breakEvenDays === Infinity ? -1 : breakEvenDays,
         estimatedAt: Date.now(),
@@ -238,8 +336,8 @@ export async function optimizeLPRange(params: {
     pair: string;
     currentPrice: number;
     volatility: number;
-    timeHorizon?: number;    // days
-    riskTolerance?: number;  // 0-1, higher = wider range
+    timeHorizon?: number;
+    riskTolerance?: number;
 }): Promise<LPRangeOptimization> {
     const {
         pair,
@@ -251,26 +349,20 @@ export async function optimizeLPRange(params: {
 
     const regime = classifyRegime(volatility);
 
-    // Expected price range based on vol and time horizon
-    // Using ±2σ move for the given time horizon
     const dailyVol = volatility / Math.sqrt(365);
     const periodVol = dailyVol * Math.sqrt(timeHorizon);
-    const sigmas = 1.5 + riskTolerance * 1.5; // 1.5σ to 3σ based on risk tolerance
+    const sigmas = 1.5 + riskTolerance * 1.5;
 
     const rangeMultiplier = Math.exp(sigmas * periodVol);
     const recommendedLower = currentPrice / rangeMultiplier;
     const recommendedUpper = currentPrice * rangeMultiplier;
     const rangeWidth = ((recommendedUpper - recommendedLower) / currentPrice) * 100;
 
-    // Capital efficiency vs full range (Uniswap v3 style)
-    // Efficiency ≈ sqrt(upper/lower) / (sqrt(upper/lower) - 1)
     const sqrtRatio = Math.sqrt(recommendedUpper / recommendedLower);
     const capitalEfficiency = sqrtRatio / (sqrtRatio - 1);
 
-    // Expected fee APR (simplified)
     const feeBps = interpolateFee(volatility);
-    const dailyVolEstimate = currentPrice * 1000000; // placeholder volume
-    const expectedAPR = (feeBps / 10000) * 365 * capitalEfficiency * 0.01; // rough estimate
+    const expectedAPR = (feeBps / 10000) * 365 * capitalEfficiency * 0.01;
 
     return {
         pair,
@@ -287,13 +379,238 @@ export async function optimizeLPRange(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Keeper fail-safe system
+// ---------------------------------------------------------------------------
+
+const DEFAULT_KEEPER_CONFIG: KeeperConfig = {
+    failSafeMultiplier: 2.0,
+    heartbeatTimeout: 120,
+    dustThreshold: 1,
+    maxMomentumBoost: 1.5,
+    baseKeeperRewardBps: 5,
+};
+
+const keeperState: Map<string, KeeperStatus> = new Map();
+
+/**
+ * Record a keeper heartbeat for a pool.
+ */
+export function keeperHeartbeat(poolId: string): KeeperStatus {
+    const now = Date.now();
+    const existing = keeperState.get(poolId);
+
+    const status: KeeperStatus = {
+        lastHeartbeat: now,
+        isResponsive: true,
+        currentMultiplier: 1.0,
+        rewardAccumulated: existing?.rewardAccumulated || 0,
+    };
+
+    keeperState.set(poolId, status);
+    return status;
+}
+
+/**
+ * Check keeper status for a pool.
+ * If keeper is unresponsive, the fail-safe escalation multiplier is applied.
+ */
+export function getKeeperStatus(
+    poolId: string,
+    config: KeeperConfig = DEFAULT_KEEPER_CONFIG,
+): KeeperStatus {
+    const status = keeperState.get(poolId);
+    const now = Date.now();
+
+    if (!status) {
+        return {
+            lastHeartbeat: 0,
+            isResponsive: false,
+            currentMultiplier: config.failSafeMultiplier,
+            rewardAccumulated: 0,
+        };
+    }
+
+    const elapsed = (now - status.lastHeartbeat) / 1000;
+    const isResponsive = elapsed < config.heartbeatTimeout;
+
+    let currentMultiplier = 1.0;
+    if (!isResponsive) {
+        const overduePeriods = Math.floor(elapsed / config.heartbeatTimeout);
+        currentMultiplier = Math.min(
+            1.0 + (config.failSafeMultiplier - 1.0) * overduePeriods,
+            config.failSafeMultiplier * 2,
+        );
+    }
+
+    return {
+        lastHeartbeat: status.lastHeartbeat,
+        isResponsive,
+        currentMultiplier,
+        rewardAccumulated: status.rewardAccumulated,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Dust filter
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply dust filter: if the computed fee is below the dust threshold,
+ * return the threshold instead.
+ */
+export function applyDustFilter(
+    feeBps: number,
+    dustThreshold: number = DEFAULT_KEEPER_CONFIG.dustThreshold,
+): number {
+    return Math.max(feeBps, dustThreshold);
+}
+
+// ---------------------------------------------------------------------------
+// Momentum boost
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply momentum boost during vol spikes.
+ * When vol is rising quickly, boost the fee by up to maxMomentumBoost (default 50%).
+ */
+export function applyMomentumBoost(
+    feeBps: number,
+    currentVol: number,
+    previousVol: number,
+    maxBoost: number = DEFAULT_KEEPER_CONFIG.maxMomentumBoost,
+): number {
+    if (previousVol <= 0) return feeBps;
+
+    const momentum = (currentVol - previousVol) / previousVol;
+    if (momentum <= 0) return feeBps;
+
+    const boostFraction = Math.min(momentum, 1.0);
+    const boostMultiplier = 1.0 + (maxBoost - 1.0) * boostFraction;
+
+    return feeBps * boostMultiplier;
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic keeper rewards
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculate the keeper reward for a crank operation.
+ * Rewards scale with vol regime: higher vol = higher reward.
+ */
+export function calculateKeeperReward(
+    regime: VolRegime,
+    baseBps: number = DEFAULT_KEEPER_CONFIG.baseKeeperRewardBps,
+): number {
+    const multipliers: Record<VolRegime, number> = {
+        very_low: 0.5,
+        low: 0.75,
+        medium: 1.0,
+        high: 1.5,
+        extreme: 2.0,
+    };
+    return baseBps * (multipliers[regime] || 1.0);
+}
+
+/**
+ * Record a keeper reward earned.
+ */
+export function recordKeeperReward(poolId: string, rewardBps: number): void {
+    const status = keeperState.get(poolId);
+    if (status) {
+        status.rewardAccumulated += rewardBps;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Full fee computation with all modifiers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the final dynamic fee with all modifiers applied:
+ * 1. Base piecewise-linear interpolation
+ * 2. Keeper fail-safe multiplier
+ * 3. Momentum boost
+ * 4. Dust filter
+ */
+export function computeDynamicFee(params: {
+    volBps: number;
+    previousVolBps?: number;
+    poolId?: string;
+    feeConfig?: OnChainFeeConfig;
+    keeperConfig?: KeeperConfig;
+}): { feeBps: number; regime: VolRegime; keeperMultiplier: number; momentumBoost: number } {
+    const {
+        volBps,
+        previousVolBps,
+        poolId,
+        feeConfig = DEFAULT_ONCHAIN_FEE_CONFIG,
+        keeperConfig = DEFAULT_KEEPER_CONFIG,
+    } = params;
+
+    // 1. Base fee from piecewise-linear interpolation
+    let feeBps = interpolateFeeBps(volBps, feeConfig);
+
+    // 2. Keeper fail-safe
+    let keeperMultiplier = 1.0;
+    if (poolId) {
+        const ks = getKeeperStatus(poolId, keeperConfig);
+        keeperMultiplier = ks.currentMultiplier;
+        feeBps *= keeperMultiplier;
+    }
+
+    // 3. Momentum boost
+    let momentumBoost = 1.0;
+    if (previousVolBps !== undefined && previousVolBps > 0) {
+        const boostedFee = applyMomentumBoost(feeBps, volBps, previousVolBps, keeperConfig.maxMomentumBoost);
+        momentumBoost = feeBps > 0 ? boostedFee / feeBps : 1.0;
+        feeBps = boostedFee;
+    }
+
+    // 4. Dust filter
+    feeBps = applyDustFilter(feeBps, keeperConfig.dustThreshold);
+
+    const volAnnualized = volBps / 10000;
+    const regime = classifyRegime(volAnnualized);
+
+    return {
+        feeBps: Math.round(feeBps * 100) / 100,
+        regime,
+        keeperMultiplier,
+        momentumBoost,
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export const tempest = {
+    // Original API
     classifyVolRegime,
     estimateFee,
     getFeeCurve,
     estimateIL,
     optimizeLPRange,
+
+    // On-chain fee interpolation
+    interpolateFeeBps,
+    classifyRegimeBps,
+    DEFAULT_ONCHAIN_FEE_CONFIG,
+
+    // Concentrated IL
+    estimateConcentratedIL,
+
+    // Keeper system
+    keeperHeartbeat,
+    getKeeperStatus,
+
+    // Fee modifiers
+    applyDustFilter,
+    applyMomentumBoost,
+    calculateKeeperReward,
+    recordKeeperReward,
+
+    // Full computation
+    computeDynamicFee,
 };
