@@ -622,7 +622,7 @@ export async function submitToDA(
                 ...(daConfig.authToken ? { Authorization: `Bearer ${daConfig.authToken}` } : {}),
                 ...(daConfig.namespace ? { "X-Namespace": daConfig.namespace } : {}),
             },
-            body: data,
+            body: data as unknown as BodyInit,
         });
         clearTimeout(timeout);
 
