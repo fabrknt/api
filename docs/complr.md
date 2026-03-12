@@ -155,7 +155,7 @@ Feed in regulatory documents and get structured, actionable obligations with thr
 - **External Intelligence** — Pluggable TRM Labs and Chainalysis KYT integration with caching and retry
 - **Semantic Search** — TF-IDF index for regulatory document retrieval
 - **Multi-Tenant Isolation** — Organizations with per-key and org-wide rate limiting
-- **SDK** — `@complr/sdk` npm package with TypeScript-first client, webhook support, retry logic
+- **SDK** — `@complr/sdk` package with TypeScript-first client, webhook support, retry logic
 - **289 tests** across 23 test files
 
 ## QuickNode Add-on

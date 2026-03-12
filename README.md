@@ -191,12 +191,12 @@ Where `{product}` is one of: `complr`, `accredit`, `sentinel`, `veil`, `stratum`
 ## Development
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env.local
-npm run dev          # http://localhost:3000
-npm run db:generate  # Regenerate Prisma client
-npm run db:push      # Push schema to database
-npm test             # Run tests
+pnpm run dev          # http://localhost:3000
+pnpm run db:generate  # Regenerate Prisma client
+pnpm run db:push      # Push schema to database
+pnpm test             # Run tests
 ```
 
 ### Environment Variables
