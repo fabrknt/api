@@ -49,7 +49,10 @@ import {
     normCdf as sdkNormCdf,
     normPdf as sdkNormPdf,
     d1d2 as sdkD1d2,
+    d1d2SigmaFirst as sdkD1d2SigmaFirst,
     marginWeightFor as sdkMarginWeightFor,
+    marginWeightForApiType as sdkMarginWeightForApiType,
+    normalizePositionType as sdkNormalizePositionType,
     findSettleableAuctions as sdkFindSettleableAuctions,
 } from "@tensor/core";
 
@@ -63,7 +66,7 @@ const normCdf = sdkNormCdf;
 /** Standard normal PDF — delegates to @tensor/core */
 const normPdf = sdkNormPdf;
 
-/** Black-Scholes d1 and d2 — delegates to @tensor/core */
+/** Black-Scholes d1 and d2 — delegates to @tensor/core d1d2SigmaFirst */
 function bsD1D2(
     spot: number,
     strike: number,
@@ -71,7 +74,7 @@ function bsD1D2(
     iv: number,
     riskFreeRate: number,
 ): { d1: number; d2: number } {
-    return sdkD1d2(spot, strike, timeToExpiry, riskFreeRate, iv);
+    return sdkD1d2SigmaFirst(spot, strike, timeToExpiry, iv, riskFreeRate);
 }
 
 /** Black-Scholes option price */
@@ -439,12 +442,10 @@ export function calculateHealth(
 
 /**
  * Return the initial-margin weight — delegates to @tensor/core.
- * Extended with API-specific 'perp' alias.
+ * Uses the SDK's marginWeightForApiType which handles the 'perp' alias.
  */
 export function marginWeightFor(instrumentType: string): number {
-    // The API uses 'perp' as an alias for 'perpetual'
-    const mapped = instrumentType === "perp" ? "perpetual" : instrumentType;
-    return sdkMarginWeightFor(mapped);
+    return sdkMarginWeightForApiType(instrumentType);
 }
 
 /**

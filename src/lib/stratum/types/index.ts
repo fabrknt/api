@@ -48,28 +48,23 @@ export interface HealthStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Order book types — OrderSide imported from @stratum/core
+// Order book types — imported from @stratum/core
 // ---------------------------------------------------------------------------
 
 import { OrderSide } from "@stratum/core";
 export { OrderSide };
 
-export interface OrderLeaf {
-    price: bigint;
-    qty: bigint;
-    side: OrderSide;
-    owner: Uint8Array;
-    nonce: bigint;
-}
+// Re-export compat types from @stratum/core so consumers can use the SDK
+// directly instead of local definitions.
+import type {
+    ApiOrderLeaf as SdkApiOrderLeaf,
+    StructuredMerkleProof as SdkStructuredMerkleProof,
+    HashFunctionName as SdkHashFunctionName,
+} from "@stratum/core";
 
-export interface MerkleProof {
-    leaf: Uint8Array;
-    siblings: Uint8Array[];
-    index: number;
-    root: Uint8Array;
-}
-
-export type HashFunction = "poseidon" | "sha256" | "keccak256";
+export type OrderLeaf = SdkApiOrderLeaf;
+export type MerkleProof = SdkStructuredMerkleProof;
+export type HashFunction = SdkHashFunctionName;
 
 // ---------------------------------------------------------------------------
 // ZK types (from @stratum/core)

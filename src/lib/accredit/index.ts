@@ -40,8 +40,14 @@ import type {
     KycVerificationRequest,
     KycVerificationResult,
 } from "./types";
+import { kycLevelFromString as sdkKycLevelFromString } from "./types";
 
-export { OnChainKycLevel, OnChainJurisdiction, PoolStatus } from "./types";
+export {
+    OnChainKycLevel, OnChainJurisdiction, PoolStatus,
+    kycLevelToString, kycLevelFromString,
+    jurisdictionToString, jurisdictionFromString,
+} from "./types";
+export type { KycLevelString, JurisdictionString } from "./types";
 
 // ---------------------------------------------------------------------------
 // KYC registry — Prisma persistence with in-memory fallback
@@ -441,14 +447,12 @@ const KYC_TRADE_LIMITS_MAP: Record<number, number> = {
     3: Infinity,    // Institutional
 };
 
+/**
+ * Convert API's string KYC level to numeric on-chain level.
+ * Delegates to @accredit/core's kycLevelFromString.
+ */
 function kycLevelToOnChain(level: KycLevel): number {
-    switch (level) {
-        case "none": return 0;
-        case "basic": return 0;
-        case "enhanced": return 2;
-        case "institutional": return 3;
-        default: return 0;
-    }
+    return sdkKycLevelFromString(level as any) as number;
 }
 
 /**

@@ -443,86 +443,43 @@ export async function verifyZkProof(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Merkle tree utilities
+// SHA-256 helper (used by DA submission)
 // ---------------------------------------------------------------------------
 
-/**
- * Compute SHA-256 hash (for Merkle tree operations).
- */
 function sha256Hash(data: Uint8Array): Uint8Array {
     const crypto = require("crypto");
     return new Uint8Array(crypto.createHash("sha256").update(data).digest());
 }
 
-/**
- * Hash two siblings together for Merkle tree.
- */
-function hashPair(left: Uint8Array, right: Uint8Array, hashFn: HashFunction = "sha256"): Uint8Array {
-    const combined = new Uint8Array(left.length + right.length);
-    combined.set(left, 0);
-    combined.set(right, left.length);
+// ---------------------------------------------------------------------------
+// Merkle tree utilities — delegates to @stratum/core compat layer
+// ---------------------------------------------------------------------------
 
-    if (hashFn === "sha256") return sha256Hash(combined);
-    if (hashFn === "keccak256") {
-        // Use SHA-256 as keccak fallback in self-contained mode
-        return sha256Hash(combined);
-    }
-    // poseidon would require a dedicated library; fallback to sha256
-    return sha256Hash(combined);
-}
+import {
+    buildMerkleRoot as sdkBuildMerkleRoot,
+    verifyMerkleProof as sdkVerifyMerkleProof,
+} from "@stratum/core";
 
 /**
  * Verify a Merkle inclusion proof.
+ * Delegates to @stratum/core's compat layer.
  */
 export function verifyMerkleProof(
     proof: MerkleProof,
     hashFn: HashFunction = "sha256",
 ): boolean {
-    let current = proof.leaf;
-    let idx = proof.index;
-
-    for (const sibling of proof.siblings) {
-        if (idx % 2 === 0) {
-            current = hashPair(current, sibling, hashFn);
-        } else {
-            current = hashPair(sibling, current, hashFn);
-        }
-        idx = Math.floor(idx / 2);
-    }
-
-    if (current.length !== proof.root.length) return false;
-    for (let i = 0; i < current.length; i++) {
-        if (current[i] !== proof.root[i]) return false;
-    }
-    return true;
+    return sdkVerifyMerkleProof(proof, hashFn);
 }
 
 /**
  * Build a Merkle root from a set of leaves.
+ * Delegates to @stratum/core's compat layer.
  */
 export function buildMerkleRoot(
     leaves: Uint8Array[],
     hashFn: HashFunction = "sha256",
 ): Uint8Array {
-    if (leaves.length === 0) return new Uint8Array(32);
-    if (leaves.length === 1) return leaves[0];
-
-    // Pad to power of 2
-    const padded = [...leaves];
-    while (padded.length & (padded.length - 1)) {
-        padded.push(new Uint8Array(padded[0].length));
-    }
-
-    let layer = padded;
-    while (layer.length > 1) {
-        const next: Uint8Array[] = [];
-        for (let i = 0; i < layer.length; i += 2) {
-            next.push(hashPair(layer[i], layer[i + 1], hashFn));
-        }
-        layer = next;
-    }
-
-    return layer[0];
+    return sdkBuildMerkleRoot(leaves, hashFn);
 }
 
 // ---------------------------------------------------------------------------

@@ -21,13 +21,13 @@
     "pg": "^8.20.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "@veil/core": "file:../../veil/packages/core",
-    "@sentinel/core": "file:../../sentinel/packages/core",
-    "@stratum/core": "file:../../stratum/packages/core",
-    "@accredit/core": "file:../../accredit/packages/core",
-    "@tempest/core": "file:../../tempest/packages/core",
-    "@tensor/core": "file:../../tensor/packages/core",
-    "@complr/core": "file:../../complr/packages/core"
+    "@veil/core": "git+https://github.com/psyto/veil.git#main&path:packages/core",
+    "@sentinel/core": "git+https://github.com/psyto/sentinel.git#main&path:packages/core",
+    "@stratum/core": "git+https://github.com/psyto/stratum.git#main&path:packages/core",
+    "@accredit/core": "git+https://github.com/psyto/accredit.git#master&path:packages/core",
+    "@tempest/core": "git+https://github.com/psyto/tempest.git#master&path:packages/core",
+    "@tensor/core": "git+https://github.com/psyto/tensor.git#master&path:packages/core",
+    "@complr/core": "git+https://github.com/psyto/complr.git#master&path:packages/core"
   },
   "devDependencies": {
     "@types/node": "^25.3.5",
@@ -36,5 +36,19 @@
     "prisma": "^7.4.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "prisma",
+      "@veil/core",
+      "@sentinel/core",
+      "@stratum/core",
+      "@accredit/core",
+      "@tempest/core",
+      "@tensor/core",
+      "@complr/core",
+      "esbuild"
+    ]
   }
 }

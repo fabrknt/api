@@ -50,6 +50,14 @@ export interface TransferCheckResult {
 import {
     KycLevel as SdkKycLevel,
     Jurisdiction as SdkJurisdiction,
+    kycLevelToString,
+    kycLevelFromString,
+    jurisdictionToString,
+    jurisdictionFromString,
+} from "@accredit/core";
+import type {
+    KycLevelString,
+    JurisdictionString,
 } from "@accredit/core";
 
 /**
@@ -65,6 +73,16 @@ export type OnChainKycLevel = SdkKycLevel;
  */
 export const OnChainJurisdiction = SdkJurisdiction;
 export type OnChainJurisdiction = SdkJurisdiction;
+
+// Re-export SDK conversion utilities so API code can bridge between
+// the string-based KycLevel/Jurisdiction and numeric enums.
+export {
+    kycLevelToString,
+    kycLevelFromString,
+    jurisdictionToString,
+    jurisdictionFromString,
+};
+export type { KycLevelString, JurisdictionString };
 
 /**
  * KYC trade limits per level (USD).
