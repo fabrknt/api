@@ -37,33 +37,33 @@ import type {
     DeltaNetResult,
 } from "./types";
 
+// Import shared pure functions and constants from @tensor/core
+import {
+    DEFAULT_MONEYNESS_NODES as SDK_MONEYNESS_NODES,
+    DEFAULT_EXPIRY_DAYS as SDK_EXPIRY_DAYS,
+    DEFAULT_SKEW_MULTIPLIERS as SDK_SKEW_MULTIPLIERS,
+    DEFAULT_TERM_MULTIPLIERS as SDK_TERM_MULTIPLIERS,
+    buildVolSurface as sdkBuildVolSurface,
+    volSurfaceToOnChain as sdkVolSurfaceToOnChain,
+    fitVolSurfaceFromOracle as sdkFitVolSurfaceFromOracle,
+    normCdf as sdkNormCdf,
+    normPdf as sdkNormPdf,
+    d1d2 as sdkD1d2,
+    marginWeightFor as sdkMarginWeightFor,
+    findSettleableAuctions as sdkFindSettleableAuctions,
+} from "@tensor/core";
+
 // ---------------------------------------------------------------------------
 // Black-Scholes
 // ---------------------------------------------------------------------------
 
-/** Standard normal CDF approximation (Abramowitz & Stegun) */
-function normCdf(x: number): number {
-    const a1 = 0.254829592;
-    const a2 = -0.284496736;
-    const a3 = 1.421413741;
-    const a4 = -1.453152027;
-    const a5 = 1.061405429;
-    const p = 0.3275911;
+/** Standard normal CDF — delegates to @tensor/core */
+const normCdf = sdkNormCdf;
 
-    const sign = x < 0 ? -1 : 1;
-    const absX = Math.abs(x);
-    const t = 1.0 / (1.0 + p * absX);
-    const y = 1.0 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-absX * absX / 2);
+/** Standard normal PDF — delegates to @tensor/core */
+const normPdf = sdkNormPdf;
 
-    return 0.5 * (1.0 + sign * y);
-}
-
-/** Standard normal PDF */
-function normPdf(x: number): number {
-    return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
-}
-
-/** Black-Scholes d1 and d2 */
+/** Black-Scholes d1 and d2 — delegates to @tensor/core */
 function bsD1D2(
     spot: number,
     strike: number,
@@ -71,10 +71,7 @@ function bsD1D2(
     iv: number,
     riskFreeRate: number,
 ): { d1: number; d2: number } {
-    const d1 = (Math.log(spot / strike) + (riskFreeRate + 0.5 * iv * iv) * timeToExpiry) /
-        (iv * Math.sqrt(timeToExpiry));
-    const d2 = d1 - iv * Math.sqrt(timeToExpiry);
-    return { d1, d2 };
+    return sdkD1d2(spot, strike, timeToExpiry, riskFreeRate, iv);
 }
 
 /** Black-Scholes option price */
@@ -165,111 +162,36 @@ const RISK_FREE_RATE = 0.05; // 5%
 // ---------------------------------------------------------------------------
 
 /**
- * Default moneyness nodes for the vol surface.
- * Covers 0.7x to 1.2x strike/spot ratio.
+ * Vol surface constants — imported from @tensor/core.
  */
-export const DEFAULT_MONEYNESS_NODES = [0.7, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.2];
+export const DEFAULT_MONEYNESS_NODES = SDK_MONEYNESS_NODES;
+export const DEFAULT_EXPIRY_DAYS = SDK_EXPIRY_DAYS;
+export const DEFAULT_SKEW_MULTIPLIERS = SDK_SKEW_MULTIPLIERS;
+export const DEFAULT_TERM_MULTIPLIERS = SDK_TERM_MULTIPLIERS;
 
 /**
- * Default expiry bucket boundaries in days.
- */
-export const DEFAULT_EXPIRY_DAYS = [7, 30, 90, 180];
-
-/**
- * Default skew multipliers relative to ATM IV, indexed by moneyness node.
- * Based on typical crypto vol smile: higher IV for OTM puts, minimum at ATM.
- */
-export const DEFAULT_SKEW_MULTIPLIERS = [
-    1.50, // 0.7x — deep OTM puts
-    1.30, // 0.8x — OTM puts
-    1.20, // 0.85x
-    1.10, // 0.9x
-    1.04, // 0.95x
-    1.00, // 1.0x — ATM
-    1.02, // 1.05x
-    1.05, // 1.1x — OTM calls
-    1.15, // 1.2x — far OTM calls
-];
-
-/**
- * Term structure multipliers: how IV changes with expiry relative to 30-day ATM.
- */
-export const DEFAULT_TERM_MULTIPLIERS = [
-    1.15, // 7d  — elevated short-dated vol
-    1.00, // 30d — baseline
-    0.95, // 90d — slight mean reversion
-    0.92, // 180d — longer-term convergence
-];
-
-/**
- * Build a vol surface from a single ATM IV value using fixed skew/term multipliers.
+ * Build a vol surface — delegates to @tensor/core.
  */
 export function buildVolSurface(
     atmVol: number,
     skewMultipliers: number[] = DEFAULT_SKEW_MULTIPLIERS,
     termMultipliers: number[] = DEFAULT_TERM_MULTIPLIERS,
 ): VolSurface {
-    const surface: number[][] = [];
-
-    for (let e = 0; e < termMultipliers.length; e++) {
-        const row: number[] = [];
-        for (let m = 0; m < skewMultipliers.length; m++) {
-            row.push(atmVol * skewMultipliers[m] * termMultipliers[e]);
-        }
-        surface.push(row);
-    }
-
-    return {
-        surface,
-        moneyness_nodes: DEFAULT_MONEYNESS_NODES.slice(0, skewMultipliers.length),
-        expiry_days: DEFAULT_EXPIRY_DAYS.slice(0, termMultipliers.length),
-    };
+    return sdkBuildVolSurface(atmVol, skewMultipliers, termMultipliers);
 }
 
 /**
- * Convert a VolSurface (decimal IV) to on-chain format (IV in bps, fixed-size arrays).
+ * Convert a VolSurface to on-chain format — delegates to @tensor/core.
  */
 export function volSurfaceToOnChain(surface: VolSurface): OnChainVolSurface {
-    const MAX_NODES = 9;
-    const MAX_EXPIRY = 4;
-
-    const volBps: number[][] = [];
-    for (let e = 0; e < MAX_EXPIRY; e++) {
-        const row: number[] = [];
-        for (let m = 0; m < MAX_NODES; m++) {
-            const val = surface.surface[e]?.[m] ?? 0;
-            row.push(Math.round(val * 10_000));
-        }
-        volBps.push(row);
-    }
-
-    const mNodes: number[] = new Array(MAX_NODES).fill(0);
-    for (let i = 0; i < Math.min(surface.moneyness_nodes.length, MAX_NODES); i++) {
-        mNodes[i] = Math.round(surface.moneyness_nodes[i] * 1_000_000);
-    }
-
-    const eDays: number[] = new Array(MAX_EXPIRY).fill(0);
-    for (let i = 0; i < Math.min(surface.expiry_days.length, MAX_EXPIRY); i++) {
-        eDays[i] = surface.expiry_days[i];
-    }
-
-    return {
-        vol_surface: volBps,
-        moneyness_nodes: mNodes,
-        expiry_days: eDays,
-        node_count: Math.min(surface.moneyness_nodes.length, MAX_NODES),
-        expiry_count: Math.min(surface.expiry_days.length, MAX_EXPIRY),
-    };
+    return sdkVolSurfaceToOnChain(surface);
 }
 
 /**
- * Fit a vol surface from ATM oracle variance data.
+ * Fit a vol surface from ATM oracle variance data — delegates to @tensor/core.
  */
 export function fitVolSurfaceFromOracle(varianceBps: number): OnChainVolSurface {
-    const ivBps = Math.sqrt(varianceBps);
-    const atmVol = ivBps / 10_000;
-    const surface = buildVolSurface(atmVol);
-    return volSurfaceToOnChain(surface);
+    return sdkFitVolSurfaceFromOracle(varianceBps);
 }
 
 /**
@@ -516,17 +438,13 @@ export function calculateHealth(
 // ---------------------------------------------------------------------------
 
 /**
- * Return the initial-margin weight for a given instrument type.
+ * Return the initial-margin weight — delegates to @tensor/core.
+ * Extended with API-specific 'perp' alias.
  */
 export function marginWeightFor(instrumentType: string): number {
-    const weights: Record<string, number> = {
-        perpetual: 0.10,
-        perp: 0.10,
-        spot: 0.10,
-        lending: 0.05,
-        option: 0.15,
-    };
-    return weights[instrumentType] ?? 0.10;
+    // The API uses 'perp' as an alias for 'perpetual'
+    const mapped = instrumentType === "perp" ? "perpetual" : instrumentType;
+    return sdkMarginWeightFor(mapped);
 }
 
 /**
@@ -744,15 +662,13 @@ export function evaluateBidOpportunity(params: {
 }
 
 /**
- * Find auctions that have ended and need settlement.
+ * Find auctions that have ended — delegates to @tensor/core.
  */
 export function findSettleableAuctions(
     currentTime: number,
     intentAuctionEnds: Record<string, number>,
 ): string[] {
-    return Object.entries(intentAuctionEnds)
-        .filter(([_, auctionEnd]) => auctionEnd > 0 && currentTime > auctionEnd)
-        .map(([intentId]) => intentId);
+    return sdkFindSettleableAuctions(currentTime, intentAuctionEnds);
 }
 
 // ---------------------------------------------------------------------------

@@ -48,13 +48,11 @@ export interface HealthStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Order book types (from @stratum/core)
+// Order book types — OrderSide imported from @stratum/core
 // ---------------------------------------------------------------------------
 
-export enum OrderSide {
-    Bid = 0,
-    Ask = 1,
-}
+import { OrderSide } from "@stratum/core";
+export { OrderSide };
 
 export interface OrderLeaf {
     price: bigint;

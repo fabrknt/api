@@ -209,71 +209,28 @@ export function createThresholdEncryption(
 }
 
 // ---------------------------------------------------------------------------
-// Payload serialization (reflects @veil/core payload.ts)
+// Payload serialization — imported from @veil/core
 // ---------------------------------------------------------------------------
 
-export type FieldType = "u8" | "u16" | "u32" | "u64" | "i64" | "pubkey" | "bytes";
+import {
+    calculateSchemaSize,
+    SWAP_ORDER_SCHEMA,
+    RWA_ASSET_SCHEMA,
+    RWA_ACCESS_GRANT_SCHEMA,
+} from "@veil/core";
 
-export interface FieldDef {
-    name: string;
-    type: FieldType;
-    size?: number;
-}
-
-export interface PayloadSchema {
-    fields: FieldDef[];
-}
-
-export function calculateSchemaSize(schema: PayloadSchema): number {
-    return schema.fields.reduce((total, field) => {
-        switch (field.type) {
-            case "u8": return total + 1;
-            case "u16": return total + 2;
-            case "u32": return total + 4;
-            case "u64": case "i64": return total + 8;
-            case "pubkey": return total + 32;
-            case "bytes": return total + (field.size || 0);
-            default: return total;
-        }
-    }, 0);
-}
-
-/** Confidential Swap Router order payload schema */
-export const SWAP_ORDER_SCHEMA: PayloadSchema = {
-    fields: [
-        { name: "minOutputAmount", type: "u64" },
-        { name: "slippageBps", type: "u16" },
-        { name: "deadline", type: "i64" },
-        { name: "padding", type: "bytes", size: 6 },
-    ],
+export {
+    calculateSchemaSize,
+    SWAP_ORDER_SCHEMA,
+    RWA_ASSET_SCHEMA,
+    RWA_ACCESS_GRANT_SCHEMA,
 };
 
-/** RWA Secrets Service asset metadata schema */
-export const RWA_ASSET_SCHEMA: PayloadSchema = {
-    fields: [
-        { name: "assetType", type: "u8" },
-        { name: "valuationAmount", type: "u64" },
-        { name: "valuationCurrency", type: "u8" },
-        { name: "ownerCount", type: "u8" },
-        { name: "encumbered", type: "u8" },
-        { name: "complianceFlags", type: "u32" },
-        { name: "issuanceDate", type: "i64" },
-        { name: "expirationDate", type: "i64" },
-        { name: "jurisdiction", type: "bytes", size: 3 },
-        { name: "padding", type: "bytes", size: 2 },
-    ],
-};
-
-/** RWA access grant schema */
-export const RWA_ACCESS_GRANT_SCHEMA: PayloadSchema = {
-    fields: [
-        { name: "accessLevel", type: "u8" },
-        { name: "grantedAt", type: "i64" },
-        { name: "expiresAt", type: "i64" },
-        { name: "canDelegate", type: "u8" },
-        { name: "revokedAt", type: "i64" },
-    ],
-};
+export type {
+    FieldType,
+    FieldDef,
+    PayloadSchema,
+} from "@veil/core";
 
 // ---------------------------------------------------------------------------
 // ZK Compression (reflects @veil/core zk-compression.ts — Light Protocol)

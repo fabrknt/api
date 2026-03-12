@@ -33,6 +33,14 @@ import type {
 
 export { Regime, REGIME_NAMES, REGIME_COLORS } from "./types";
 
+// Import shared pure functions from @tempest/core
+import {
+    classifyRegime as sdkClassifyRegime,
+    interpolateFee as sdkInterpolateFee,
+    DEFAULT_FEE_CONFIG as SDK_DEFAULT_FEE_CONFIG,
+    estimateIL as sdkEstimateIL,
+} from "@tempest/core";
+
 // ---------------------------------------------------------------------------
 // Volatility regime thresholds (annualized vol)
 // ---------------------------------------------------------------------------
@@ -69,29 +77,9 @@ const DEFAULT_CONFIG: FeeCurveConfig = {
 // ---------------------------------------------------------------------------
 
 /**
- * Default on-chain fee config with 6 piecewise-linear breakpoints.
- * Breakpoints (vol in bps, fee in bps):
- *   0 ->  1 bps fee   (very-low vol)
- * 200 ->  5 bps fee   (low vol)
- * 500 -> 30 bps fee   (normal vol)
- * 1500 -> 60 bps fee  (high vol)
- * 3000 -> 100 bps fee (extreme vol)
- * 10000 -> 100 bps fee (cap)
+ * Default on-chain fee config — imported from @tempest/core.
  */
-export const DEFAULT_ONCHAIN_FEE_CONFIG: OnChainFeeConfig = {
-    vol0: 0n,
-    fee0: 1,
-    vol1: 200n,
-    fee1: 5,
-    vol2: 500n,
-    fee2: 30,
-    vol3: 1500n,
-    fee3: 60,
-    vol4: 3000n,
-    fee4: 100,
-    vol5: 10000n,
-    fee5: 100,
-};
+export const DEFAULT_ONCHAIN_FEE_CONFIG: OnChainFeeConfig = SDK_DEFAULT_FEE_CONFIG;
 
 // ---------------------------------------------------------------------------
 // Volatility regime classification
@@ -107,14 +95,10 @@ function classifyRegime(volatility: number): VolRegime {
 
 /**
  * Classify a volatility reading in bps into a Regime enum value.
- * Matches @tempest/core classifyRegime semantics.
+ * Delegates to @tempest/core classifyRegime.
  */
 export function classifyRegimeBps(volBps: number): number {
-    if (volBps < 200) return 0;  // VeryLow
-    if (volBps < 500) return 1;  // Low
-    if (volBps < 1500) return 2; // Normal
-    if (volBps < 3000) return 3; // High
-    return 4;                    // Extreme
+    return sdkClassifyRegime(volBps);
 }
 
 function volPercentile(volatility: number): number {
@@ -149,34 +133,13 @@ export async function classifyVolRegime(params: {
 
 /**
  * Piecewise-linear interpolation of vol (in bps) to fee (in bps).
- * Uses the 6-breakpoint on-chain format from @tempest/core.
+ * Delegates to @tempest/core interpolateFee.
  */
 export function interpolateFeeBps(
     volBps: number,
     config: OnChainFeeConfig = DEFAULT_ONCHAIN_FEE_CONFIG,
 ): number {
-    const breakpoints: Array<{ vol: number; fee: number }> = [
-        { vol: Number(config.vol0), fee: config.fee0 },
-        { vol: Number(config.vol1), fee: config.fee1 },
-        { vol: Number(config.vol2), fee: config.fee2 },
-        { vol: Number(config.vol3), fee: config.fee3 },
-        { vol: Number(config.vol4), fee: config.fee4 },
-        { vol: Number(config.vol5), fee: config.fee5 },
-    ];
-
-    if (volBps <= breakpoints[0].vol) return breakpoints[0].fee;
-    if (volBps >= breakpoints[breakpoints.length - 1].vol) return breakpoints[breakpoints.length - 1].fee;
-
-    for (let i = 1; i < breakpoints.length; i++) {
-        const lo = breakpoints[i - 1];
-        const hi = breakpoints[i];
-        if (volBps >= lo.vol && volBps < hi.vol) {
-            const t = (volBps - lo.vol) / (hi.vol - lo.vol);
-            return lo.fee + t * (hi.fee - lo.fee);
-        }
-    }
-
-    return breakpoints[breakpoints.length - 1].fee;
+    return sdkInterpolateFee(volBps, config);
 }
 
 // ---------------------------------------------------------------------------
@@ -267,8 +230,8 @@ export async function getFeeCurve(params: {
 // ---------------------------------------------------------------------------
 
 /**
- * Estimate IL for concentrated liquidity (from @tempest/core lp.ts).
- * Uses the simplified IL formula: IL ~ vol^2 * time / (2 * rangeWidth^2)
+ * Estimate IL for concentrated liquidity.
+ * Delegates to @tempest/core estimateIL.
  */
 export function estimateConcentratedIL(
     volBps: number,
@@ -276,14 +239,7 @@ export function estimateConcentratedIL(
     rangeUpper: number,
     holdingPeriodDays: number = 30,
 ): number {
-    const rangeWidth = rangeUpper - rangeLower;
-    if (rangeWidth <= 0) return 0;
-
-    const volFraction = volBps / 10000;
-    const timeInYears = holdingPeriodDays / 365.25;
-
-    const il = (volFraction * volFraction * timeInYears * 100) / (2 * (rangeWidth / 10000) * (rangeWidth / 10000));
-    return Math.min(il, 100);
+    return sdkEstimateIL(volBps, rangeLower, rangeUpper, holdingPeriodDays);
 }
 
 export async function estimateIL(params: {

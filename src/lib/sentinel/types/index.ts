@@ -70,36 +70,20 @@ export interface MevAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Pattern IDs (from @sentinel/core types.ts)
+// Pattern IDs — derived from @sentinel/core PatternId enum values
 // ---------------------------------------------------------------------------
 
-/**
- * All known pattern IDs.
- * Solana: P-101 through P-108
- * EVM: EVM-001 through EVM-009
- */
-export type PatternId =
-    // Solana patterns
-    | "P-101"  // MintKill
-    | "P-102"  // FreezeKill
-    | "P-103"  // SignerMismatch
-    | "P-104"  // DangerousClose
-    | "P-105"  // MaliciousTransferHook
-    | "P-106"  // UnexpectedHookExecution
-    | "P-107"  // HookReentrancy
-    | "P-108"  // ExcessiveHookAccounts
-    // EVM patterns
-    | "EVM-001" // ReentrancyAttack
-    | "EVM-002" // FlashLoanAttack
-    | "EVM-003" // FrontRunning
-    | "EVM-004" // UnauthorizedAccess
-    | "EVM-005" // ProxyManipulation
-    | "EVM-006" // SelfdestructAbuse
-    | "EVM-007" // ApprovalExploitation
-    | "EVM-008" // OracleManipulation
-    | "EVM-009"; // GovernanceManipulation
+import { PatternId as SdkPatternId, Severity as SdkSeverity } from "@sentinel/core";
 
-export type Severity = "critical" | "warning" | "alert";
+/**
+ * All known pattern IDs as string union.
+ * The SDK uses a string enum with the same values, so we use the enum's
+ * value type directly. This keeps backward compatibility with API consumers
+ * who expect plain string values.
+ */
+export type PatternId = `${SdkPatternId}`;
+
+export type Severity = `${SdkSeverity}`;
 
 export interface SecurityWarning {
     patternId: PatternId;
@@ -110,43 +94,15 @@ export interface SecurityWarning {
 }
 
 // ---------------------------------------------------------------------------
-// Simulation types (from @sentinel/core types.ts)
+// Simulation types — re-exported from @sentinel/core
 // ---------------------------------------------------------------------------
 
-export interface SimulationConfig {
-    evmForkUrl?: string;
-    solanaRpcUrl?: string;
-    forkBlockNumber?: number;
-    timeout?: number;
-    traceStateDiffs?: boolean;
-}
-
-export interface SimulationResult {
-    success: boolean;
-    chain: string;
-    gasUsed?: number;
-    computeUnitsUsed?: number;
-    stateChanges?: StateChange[];
-    balanceChanges?: BalanceChange[];
-    logs?: string[];
-    error?: string;
-    revertReason?: string;
-}
-
-export interface StateChange {
-    address: string;
-    slot?: string;
-    previousValue?: string;
-    newValue?: string;
-}
-
-export interface BalanceChange {
-    address: string;
-    token?: string;
-    before: string;
-    after: string;
-    delta: string;
-}
+export type {
+    SimulationConfig,
+    SimulationResult,
+    StateChange,
+    BalanceChange,
+} from "@sentinel/core";
 
 // ---------------------------------------------------------------------------
 // Bytecode analysis types
@@ -161,50 +117,19 @@ export interface BytecodeAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Bundle types (from @sentinel/core types.ts)
+// Bundle types — re-exported from @sentinel/core
 // ---------------------------------------------------------------------------
 
-export enum FlashbotsNetwork {
-    Mainnet = "mainnet",
-    Goerli = "goerli",
-    Sepolia = "sepolia",
-}
+export {
+    FlashbotsNetwork,
+} from "@sentinel/core";
 
-export interface FlashbotsBundle {
-    transactions: string[];
-    blockNumber: number;
-    minTimestamp?: number;
-    maxTimestamp?: number;
-    revertingTxHashes?: string[];
-}
-
-export interface MevShareBundle {
-    transactions: string[];
-    blockNumber: number;
-    privacy?: {
-        hints?: ("calldata" | "contract_address" | "logs" | "function_selector" | "hash")[];
-        builders?: string[];
-    };
-    validity?: {
-        refund?: { bodyIdx: number; percent: number }[];
-        refundConfig?: { address: string; percent: number }[];
-    };
-}
-
-export interface BundleResult {
-    bundleId: string;
-    accepted: boolean;
-    signatures?: string[];
-    error?: string;
-}
-
-export interface BundleStatusResponse {
-    status: "pending" | "landed" | "failed" | "invalid";
-    landedSlot?: number;
-    landedBlock?: number;
-    transactions?: string[];
-    error?: string;
-}
+export type {
+    FlashbotsBundle,
+    MevShareBundle,
+    BundleResult,
+    BundleStatusResponse,
+} from "@sentinel/core";
 
 // ---------------------------------------------------------------------------
 // Honeypot analysis types
@@ -225,8 +150,6 @@ export interface OracleRegistryConfig {
     rpcUrl: string;
 }
 
-export const CHAINLINK_DENOMINATIONS = {
-    ETH: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-    BTC: "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
-    USD: "0x0000000000000000000000000000000000000348",
-} as const;
+// Re-export Chainlink denomination constants from @sentinel/core
+import { DENOMINATIONS } from "@sentinel/core";
+export const CHAINLINK_DENOMINATIONS = DENOMINATIONS;

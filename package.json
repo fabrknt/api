@@ -20,7 +20,14 @@
     "next": "^16.1.6",
     "pg": "^8.20.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "@veil/core": "file:../../veil/packages/core",
+    "@sentinel/core": "file:../../sentinel/packages/core",
+    "@stratum/core": "file:../../stratum/packages/core",
+    "@accredit/core": "file:../../accredit/packages/core",
+    "@tempest/core": "file:../../tempest/packages/core",
+    "@tensor/core": "file:../../tensor/packages/core",
+    "@complr/core": "file:../../complr/packages/core"
   },
   "devDependencies": {
     "@types/node": "^25.3.5",

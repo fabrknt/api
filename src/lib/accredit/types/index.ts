@@ -44,36 +44,32 @@ export interface TransferCheckResult {
 }
 
 // ---------------------------------------------------------------------------
-// On-chain KYC types (from @accredit/core)
+// On-chain KYC types — imported from @accredit/core
 // ---------------------------------------------------------------------------
 
-/**
- * On-chain KYC level enum (matches Solana program's u8 values).
- * Basic=0, Standard=1, Enhanced=2, Institutional=3.
- */
-export enum OnChainKycLevel {
-    Basic = 0,
-    Standard = 1,
-    Enhanced = 2,
-    Institutional = 3,
-}
+import {
+    KycLevel as SdkKycLevel,
+    Jurisdiction as SdkJurisdiction,
+} from "@accredit/core";
 
 /**
- * On-chain Jurisdiction enum (matches Solana program's bitmask values).
+ * On-chain KYC level enum — re-exported from @accredit/core.
+ * Basic=0, Standard=1, Enhanced=2, Institutional=3.
+ */
+export const OnChainKycLevel = SdkKycLevel;
+export type OnChainKycLevel = SdkKycLevel;
+
+/**
+ * On-chain Jurisdiction enum — re-exported from @accredit/core.
  * Used for jurisdiction bitmask checks in the registry program.
  */
-export enum OnChainJurisdiction {
-    Japan = 0,
-    Singapore = 1,
-    HongKong = 2,
-    EU = 3,
-    US = 4,
-    Other = 5,
-}
+export const OnChainJurisdiction = SdkJurisdiction;
+export type OnChainJurisdiction = SdkJurisdiction;
 
 /**
  * KYC trade limits per level (USD).
- * From @accredit/core — maps on-chain KYC level to max trade size.
+ * The SDK uses bigint limits in smallest units; the API uses USD numbers.
+ * We maintain the API's simplified USD-denominated limits for backward compatibility.
  */
 export const KYC_TRADE_LIMITS: Record<number, number> = {
     [OnChainKycLevel.Basic]: 1_000,

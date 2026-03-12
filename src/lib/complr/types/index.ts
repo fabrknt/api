@@ -1,4 +1,6 @@
-export type Jurisdiction = "MAS" | "SFC" | "FSA";
+// Jurisdiction type — imported from @complr/core (identical definition)
+import type { Jurisdiction as SdkJurisdiction } from "@complr/core";
+export type Jurisdiction = SdkJurisdiction;
 
 export interface WalletScreenResult {
     address: string;
