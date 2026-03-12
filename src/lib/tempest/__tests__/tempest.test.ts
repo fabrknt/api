@@ -138,4 +138,238 @@ describe("Tempest — Dynamic AMM Fee Engine", () => {
             expect(aggressive.rangeWidth).toBeGreaterThan(conservative.rangeWidth);
         });
     });
+
+    // -----------------------------------------------------------------------
+    // New features: Keeper Fail-Safe
+    // -----------------------------------------------------------------------
+
+    describe("keeperHeartbeat / getKeeperStatus", () => {
+        it("records heartbeat and marks keeper responsive", () => {
+            const status = tempest.keeperHeartbeat("pool-keeper-1");
+            expect(status.isResponsive).toBe(true);
+            expect(status.currentMultiplier).toBe(1.0);
+            expect(status.lastHeartbeat).toBeGreaterThan(0);
+        });
+
+        it("marks keeper unresponsive when no heartbeat exists", () => {
+            const status = tempest.getKeeperStatus("pool-no-heartbeat");
+            expect(status.isResponsive).toBe(false);
+            expect(status.currentMultiplier).toBe(2.0); // default failSafeMultiplier
+        });
+
+        it("applies fail-safe multiplier for unresponsive keeper", () => {
+            const status = tempest.getKeeperStatus("pool-never-pinged", {
+                failSafeMultiplier: 3.0,
+                heartbeatTimeout: 120,
+                dustThreshold: 1,
+                maxMomentumBoost: 1.5,
+                baseKeeperRewardBps: 5,
+            });
+            expect(status.isResponsive).toBe(false);
+            expect(status.currentMultiplier).toBe(3.0);
+        });
+
+        it("responsive keeper has multiplier of 1.0", () => {
+            tempest.keeperHeartbeat("pool-responsive-test");
+            const status = tempest.getKeeperStatus("pool-responsive-test");
+            expect(status.isResponsive).toBe(true);
+            expect(status.currentMultiplier).toBe(1.0);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // New features: Dust Filter
+    // -----------------------------------------------------------------------
+
+    describe("applyDustFilter", () => {
+        it("returns fee when above threshold", () => {
+            expect(tempest.applyDustFilter(10, 1)).toBe(10);
+        });
+
+        it("returns threshold when fee is below", () => {
+            expect(tempest.applyDustFilter(0.5, 1)).toBe(1);
+        });
+
+        it("returns threshold when fee is zero", () => {
+            expect(tempest.applyDustFilter(0, 1)).toBe(1);
+        });
+
+        it("uses default threshold of 1 bps", () => {
+            expect(tempest.applyDustFilter(0.5)).toBe(1);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // New features: Momentum Boost
+    // -----------------------------------------------------------------------
+
+    describe("applyMomentumBoost", () => {
+        it("boosts fee when vol is increasing", () => {
+            const boosted = tempest.applyMomentumBoost(30, 1000, 500);
+            expect(boosted).toBeGreaterThan(30);
+        });
+
+        it("does not boost when vol is decreasing", () => {
+            const result = tempest.applyMomentumBoost(30, 500, 1000);
+            expect(result).toBe(30);
+        });
+
+        it("does not boost when vol is unchanged", () => {
+            const result = tempest.applyMomentumBoost(30, 500, 500);
+            expect(result).toBe(30);
+        });
+
+        it("respects max boost multiplier", () => {
+            // Very large vol spike: currentVol is 10x previousVol
+            const boosted = tempest.applyMomentumBoost(30, 5000, 500, 1.5);
+            expect(boosted).toBeLessThanOrEqual(30 * 1.5);
+        });
+
+        it("returns unchanged fee when previous vol is zero", () => {
+            expect(tempest.applyMomentumBoost(30, 1000, 0)).toBe(30);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // New features: Dynamic Rewards
+    // -----------------------------------------------------------------------
+
+    describe("calculateKeeperReward", () => {
+        it("returns lower reward for very_low regime", () => {
+            const reward = tempest.calculateKeeperReward("very_low");
+            expect(reward).toBe(2.5); // 5 * 0.5
+        });
+
+        it("returns base reward for medium regime", () => {
+            const reward = tempest.calculateKeeperReward("medium");
+            expect(reward).toBe(5); // 5 * 1.0
+        });
+
+        it("returns higher reward for extreme regime", () => {
+            const reward = tempest.calculateKeeperReward("extreme");
+            expect(reward).toBe(10); // 5 * 2.0
+        });
+
+        it("scales monotonically with regime severity", () => {
+            const regimes = ["very_low", "low", "medium", "high", "extreme"] as const;
+            const rewards = regimes.map((r) => tempest.calculateKeeperReward(r));
+            for (let i = 1; i < rewards.length; i++) {
+                expect(rewards[i]).toBeGreaterThan(rewards[i - 1]);
+            }
+        });
+
+        it("accepts custom base bps", () => {
+            expect(tempest.calculateKeeperReward("medium", 10)).toBe(10);
+            expect(tempest.calculateKeeperReward("extreme", 10)).toBe(20);
+        });
+    });
+
+    describe("recordKeeperReward", () => {
+        it("accumulates rewards for a pool", () => {
+            tempest.keeperHeartbeat("pool-reward-test");
+            tempest.recordKeeperReward("pool-reward-test", 5);
+            tempest.recordKeeperReward("pool-reward-test", 10);
+
+            const status = tempest.getKeeperStatus("pool-reward-test");
+            expect(status.rewardAccumulated).toBe(15);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // New features: Full dynamic fee computation
+    // -----------------------------------------------------------------------
+
+    describe("computeDynamicFee", () => {
+        it("computes base fee from piecewise interpolation", () => {
+            const result = tempest.computeDynamicFee({ volBps: 500 });
+            expect(result.feeBps).toBe(30); // At 500 bps vol, fee is 30 bps per config
+            expect(result.keeperMultiplier).toBe(1.0);
+            expect(result.momentumBoost).toBe(1.0);
+        });
+
+        it("applies keeper fail-safe when pool has no heartbeat", () => {
+            const result = tempest.computeDynamicFee({
+                volBps: 500,
+                poolId: "pool-no-heartbeat-dyn",
+            });
+            expect(result.keeperMultiplier).toBeGreaterThan(1.0);
+            expect(result.feeBps).toBeGreaterThan(30);
+        });
+
+        it("applies momentum boost for rising vol", () => {
+            tempest.keeperHeartbeat("pool-momentum-test");
+            const result = tempest.computeDynamicFee({
+                volBps: 1000,
+                previousVolBps: 500,
+                poolId: "pool-momentum-test",
+            });
+            expect(result.momentumBoost).toBeGreaterThan(1.0);
+        });
+
+        it("applies dust filter for very low vol", () => {
+            tempest.keeperHeartbeat("pool-dust-test");
+            const result = tempest.computeDynamicFee({
+                volBps: 0,
+                poolId: "pool-dust-test",
+            });
+            expect(result.feeBps).toBeGreaterThanOrEqual(1); // dust threshold
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // New features: On-chain fee interpolation
+    // -----------------------------------------------------------------------
+
+    describe("interpolateFeeBps", () => {
+        it("returns min fee at zero vol", () => {
+            expect(tempest.interpolateFeeBps(0)).toBe(1);
+        });
+
+        it("returns max fee at extreme vol", () => {
+            expect(tempest.interpolateFeeBps(10000)).toBe(100);
+        });
+
+        it("interpolates linearly between breakpoints", () => {
+            const fee = tempest.interpolateFeeBps(350); // between 200(5bps) and 500(30bps)
+            expect(fee).toBeGreaterThan(5);
+            expect(fee).toBeLessThan(30);
+        });
+
+        it("monotonically increases", () => {
+            const vols = [0, 100, 200, 350, 500, 1000, 1500, 2000, 3000, 10000];
+            const fees = vols.map((v) => tempest.interpolateFeeBps(v));
+            for (let i = 1; i < fees.length; i++) {
+                expect(fees[i]).toBeGreaterThanOrEqual(fees[i - 1]);
+            }
+        });
+    });
+
+    describe("classifyRegimeBps", () => {
+        it("classifies vol regimes in bps", () => {
+            expect(tempest.classifyRegimeBps(100)).toBe(0);  // VeryLow
+            expect(tempest.classifyRegimeBps(300)).toBe(1);  // Low
+            expect(tempest.classifyRegimeBps(1000)).toBe(2); // Normal
+            expect(tempest.classifyRegimeBps(2000)).toBe(3); // High
+            expect(tempest.classifyRegimeBps(5000)).toBe(4); // Extreme
+        });
+    });
+
+    describe("estimateConcentratedIL", () => {
+        it("returns IL for concentrated position", () => {
+            const il = tempest.estimateConcentratedIL(500, 9000, 11000, 30);
+            expect(il).toBeGreaterThan(0);
+            expect(il).toBeLessThanOrEqual(100);
+        });
+
+        it("returns 0 for zero range width", () => {
+            const il = tempest.estimateConcentratedIL(500, 10000, 10000, 30);
+            expect(il).toBe(0);
+        });
+
+        it("higher vol produces higher IL", () => {
+            const lowVol = tempest.estimateConcentratedIL(200, 9000, 11000, 30);
+            const highVol = tempest.estimateConcentratedIL(2000, 9000, 11000, 30);
+            expect(highVol).toBeGreaterThan(lowVol);
+        });
+    });
 });
