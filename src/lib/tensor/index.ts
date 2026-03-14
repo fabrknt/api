@@ -37,7 +37,7 @@ import type {
     DeltaNetResult,
 } from "./types";
 
-// Import shared pure functions and constants from @tensor/core
+// Import shared pure functions and constants from @fabrknt/tensor-core
 import {
     DEFAULT_MONEYNESS_NODES as SDK_MONEYNESS_NODES,
     DEFAULT_EXPIRY_DAYS as SDK_EXPIRY_DAYS,
@@ -54,19 +54,19 @@ import {
     marginWeightForApiType as sdkMarginWeightForApiType,
     normalizePositionType as sdkNormalizePositionType,
     findSettleableAuctions as sdkFindSettleableAuctions,
-} from "@tensor/core";
+} from "@fabrknt/tensor-core";
 
 // ---------------------------------------------------------------------------
 // Black-Scholes
 // ---------------------------------------------------------------------------
 
-/** Standard normal CDF — delegates to @tensor/core */
+/** Standard normal CDF — delegates to @fabrknt/tensor-core */
 const normCdf = sdkNormCdf;
 
-/** Standard normal PDF — delegates to @tensor/core */
+/** Standard normal PDF — delegates to @fabrknt/tensor-core */
 const normPdf = sdkNormPdf;
 
-/** Black-Scholes d1 and d2 — delegates to @tensor/core d1d2SigmaFirst */
+/** Black-Scholes d1 and d2 — delegates to @fabrknt/tensor-core d1d2SigmaFirst */
 function bsD1D2(
     spot: number,
     strike: number,
@@ -154,18 +154,18 @@ const MARGIN_RATES: Record<PositionType, { initial: number; maintenance: number 
     lending: { initial: 0.20, maintenance: 0.15 },
 };
 
-/** Maintenance margin is this fraction of the initial margin (from @tensor/core) */
+/** Maintenance margin is this fraction of the initial margin (from @fabrknt/tensor-core) */
 const MAINTENANCE_RATIO = 0.5;
 
 const DEFAULT_IV = 0.80;     // 80% annualized — typical crypto
 const RISK_FREE_RATE = 0.05; // 5%
 
 // ---------------------------------------------------------------------------
-// Vol surface (from @tensor/core vol-surface.ts)
+// Vol surface (from @fabrknt/tensor-core vol-surface.ts)
 // ---------------------------------------------------------------------------
 
 /**
- * Vol surface constants — imported from @tensor/core.
+ * Vol surface constants — imported from @fabrknt/tensor-core.
  */
 export const DEFAULT_MONEYNESS_NODES = SDK_MONEYNESS_NODES;
 export const DEFAULT_EXPIRY_DAYS = SDK_EXPIRY_DAYS;
@@ -173,7 +173,7 @@ export const DEFAULT_SKEW_MULTIPLIERS = SDK_SKEW_MULTIPLIERS;
 export const DEFAULT_TERM_MULTIPLIERS = SDK_TERM_MULTIPLIERS;
 
 /**
- * Build a vol surface — delegates to @tensor/core.
+ * Build a vol surface — delegates to @fabrknt/tensor-core.
  */
 export function buildVolSurface(
     atmVol: number,
@@ -184,14 +184,14 @@ export function buildVolSurface(
 }
 
 /**
- * Convert a VolSurface to on-chain format — delegates to @tensor/core.
+ * Convert a VolSurface to on-chain format — delegates to @fabrknt/tensor-core.
  */
 export function volSurfaceToOnChain(surface: VolSurface): OnChainVolSurface {
     return sdkVolSurfaceToOnChain(surface);
 }
 
 /**
- * Fit a vol surface from ATM oracle variance data — delegates to @tensor/core.
+ * Fit a vol surface from ATM oracle variance data — delegates to @fabrknt/tensor-core.
  */
 export function fitVolSurfaceFromOracle(varianceBps: number): OnChainVolSurface {
     return sdkFitVolSurfaceFromOracle(varianceBps);
@@ -390,7 +390,7 @@ export async function calculateMargin(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Health calculation (from @tensor/core margin.ts)
+// Health calculation (from @fabrknt/tensor-core margin.ts)
 // ---------------------------------------------------------------------------
 
 const HEALTH_THRESHOLDS: Array<{ min: number; status: HealthStatus }> = [
@@ -437,11 +437,11 @@ export function calculateHealth(
 }
 
 // ---------------------------------------------------------------------------
-// Delta-netting (from @tensor/core margin.ts)
+// Delta-netting (from @fabrknt/tensor-core margin.ts)
 // ---------------------------------------------------------------------------
 
 /**
- * Return the initial-margin weight — delegates to @tensor/core.
+ * Return the initial-margin weight — delegates to @fabrknt/tensor-core.
  * Uses the SDK's marginWeightForApiType which handles the 'perp' alias.
  */
 export function marginWeightFor(instrumentType: string): number {
@@ -557,7 +557,7 @@ export function checkGammaLimits(
 }
 
 // ---------------------------------------------------------------------------
-// Solver auctions (from @tensor/core solver-client.ts)
+// Solver auctions (from @fabrknt/tensor-core solver-client.ts)
 // ---------------------------------------------------------------------------
 
 const solverRegistry: Map<string, SolverEntry> = new Map();
@@ -663,7 +663,7 @@ export function evaluateBidOpportunity(params: {
 }
 
 /**
- * Find auctions that have ended — delegates to @tensor/core.
+ * Find auctions that have ended — delegates to @fabrknt/tensor-core.
  */
 export function findSettleableAuctions(
     currentTime: number,

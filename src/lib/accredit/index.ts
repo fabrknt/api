@@ -449,7 +449,7 @@ const KYC_TRADE_LIMITS_MAP: Record<number, number> = {
 
 /**
  * Convert API's string KYC level to numeric on-chain level.
- * Delegates to @accredit/core's kycLevelFromString.
+ * Delegates to @fabrknt/accredit-core's kycLevelFromString.
  */
 function kycLevelToOnChain(level: KycLevel): number {
     return sdkKycLevelFromString(level as any) as number;

@@ -104,7 +104,7 @@ const DEX_SWAP_SELECTORS = new Set([
     "0xc04b8d59", // exactInput (V3 alt)
 ]);
 
-// Known flash loan provider addresses (from @sentinel/core evm-detector.ts)
+// Known flash loan provider addresses (from @fabrknt/sentinel-core evm-detector.ts)
 const FLASH_LOAN_PROVIDERS = new Set([
     "0x7d2768de32b0b80b7a3454c06bdac94a69ddc7a9", // AAVE V2
     "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2", // AAVE V3

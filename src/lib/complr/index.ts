@@ -1,7 +1,7 @@
 /**
  * Complr — Off-chain compliance screening for DeFi.
  *
- * Self-contained implementation reflecting @complr/core capabilities:
+ * Self-contained implementation reflecting @fabrknt/complr-core capabilities:
  * - Screen wallets against sanctions lists with confidence scoring
  * - External screening providers (TRM Labs, Chainalysis)
  * - Human-in-the-loop review queue for compliance decisions
@@ -23,7 +23,7 @@ import type {
 import { stratum } from "../stratum";
 
 // ---------------------------------------------------------------------------
-// Screening provider registry (reflects @complr/core policy/screening-provider.ts)
+// Screening provider registry (reflects @fabrknt/complr-core policy/screening-provider.ts)
 // ---------------------------------------------------------------------------
 
 export interface ScreeningHit {
@@ -64,7 +64,7 @@ class ScreeningRegistry {
 const screeningRegistry = new ScreeningRegistry();
 
 // ---------------------------------------------------------------------------
-// External screening providers (reflects @complr/core policy/trm-provider.ts
+// External screening providers (reflects @fabrknt/complr-core policy/trm-provider.ts
 // and chainalysis-provider.ts)
 // ---------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ export function registerChainalysisProvider(config: {
 }
 
 // ---------------------------------------------------------------------------
-// Human-in-the-loop review queue (reflects @complr/core review/queue.ts)
+// Human-in-the-loop review queue (reflects @fabrknt/complr-core review/queue.ts)
 // ---------------------------------------------------------------------------
 
 export interface ReviewItem {
@@ -257,7 +257,7 @@ export function getReviewStats(): ReviewStats {
 }
 
 // ---------------------------------------------------------------------------
-// Webhook management (reflects @complr/core webhooks/manager.ts)
+// Webhook management (reflects @fabrknt/complr-core webhooks/manager.ts)
 // ---------------------------------------------------------------------------
 
 export type WebhookEvent = "check.completed" | "check.blocked" | "screen.high_risk" | "report.generated";
@@ -346,7 +346,7 @@ export async function deliverWebhook(event: WebhookEvent, data: unknown): Promis
 }
 
 // ---------------------------------------------------------------------------
-// Confidence scoring (reflects @complr/core regulatory/confidence.ts)
+// Confidence scoring (reflects @fabrknt/complr-core regulatory/confidence.ts)
 // ---------------------------------------------------------------------------
 
 function computeConfidenceScore(
@@ -369,7 +369,7 @@ function computeConfidenceScore(
 }
 
 // ---------------------------------------------------------------------------
-// Rate limiting (reflects @complr/core api/rate-limit.ts)
+// Rate limiting (reflects @fabrknt/complr-core api/rate-limit.ts)
 // ---------------------------------------------------------------------------
 
 const RATE_LIMIT_STORE = new Map<string, { count: number; resetAt: number }>();
@@ -464,7 +464,7 @@ export async function screenWallet(
 }
 
 // ---------------------------------------------------------------------------
-// Batch screening (reflects @complr/core SDK batch checks)
+// Batch screening (reflects @fabrknt/complr-core SDK batch checks)
 // ---------------------------------------------------------------------------
 
 export async function batchScreenWallets(

@@ -144,11 +144,11 @@ Universal identity and multi-dimensional reputation protocol:
 
 | Package | Description | Chain |
 |---------|-------------|-------|
-| `@accredit/core` | Shared type definitions (enums, interfaces, constants) | Agnostic |
-| `@accredit/sdk` | PDA derivation, KycClient, RegistryClient, WrapperClient | Solana |
-| `@accredit/router` | ComplianceAwareRouter, Jupiter integration, ZK proofs | Solana |
-| `@accredit/kyc-providers` | Multi-provider KYC integration (Civic, Worldcoin) | Agnostic |
-| `@accredit/institutional-ui` | Institutional compliance dashboard (React) | Solana |
+| `@fabrknt/accredit-core` | Shared type definitions (enums, interfaces, constants) | Agnostic |
+| `@fabrknt/accredit-sdk` | PDA derivation, KycClient, RegistryClient, WrapperClient | Solana |
+| `@fabrknt/accredit-router` | ComplianceAwareRouter, Jupiter integration, ZK proofs | Solana |
+| `@fabrknt/accredit-kyc-providers` | Multi-provider KYC integration (Civic, Worldcoin) | Agnostic |
+| `@fabrknt/accredit-institutional-ui` | Institutional compliance dashboard (React) | Solana |
 
 ## QuickNode Add-on
 

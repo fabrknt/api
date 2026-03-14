@@ -452,17 +452,17 @@ function sha256Hash(data: Uint8Array): Uint8Array {
 }
 
 // ---------------------------------------------------------------------------
-// Merkle tree utilities — delegates to @stratum/core compat layer
+// Merkle tree utilities — delegates to @fabrknt/stratum-core compat layer
 // ---------------------------------------------------------------------------
 
 import {
     buildMerkleRoot as sdkBuildMerkleRoot,
     verifyMerkleProof as sdkVerifyMerkleProof,
-} from "@stratum/core";
+} from "@fabrknt/stratum-core";
 
 /**
  * Verify a Merkle inclusion proof.
- * Delegates to @stratum/core's compat layer.
+ * Delegates to @fabrknt/stratum-core's compat layer.
  */
 export function verifyMerkleProof(
     proof: MerkleProof,
@@ -473,7 +473,7 @@ export function verifyMerkleProof(
 
 /**
  * Build a Merkle root from a set of leaves.
- * Delegates to @stratum/core's compat layer.
+ * Delegates to @fabrknt/stratum-core's compat layer.
  */
 export function buildMerkleRoot(
     leaves: Uint8Array[],

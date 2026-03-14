@@ -113,10 +113,10 @@ Get LP range recommendation for concentrated liquidity positions based on curren
 
 | Package | Description |
 |---------|-------------|
-| `@tempest/core` | Chain-agnostic types, algorithms, and client (zero dependencies) |
-| `@tempest/evm` | EVM adapter implementing ChainAdapter via viem |
-| `@tempest/solana` | Solana adapter scaffold (awaiting program deployment) |
-| `@tempest/qn-addon` | QuickNode Marketplace add-on (`fabrknt-dynamic-fees`) |
+| `@fabrknt/tempest-core` | Chain-agnostic types, algorithms, and client (zero dependencies) |
+| `@fabrknt/tempest-evm` | EVM adapter implementing ChainAdapter via viem |
+| `@fabrknt/tempest-solana` | Solana adapter scaffold (awaiting program deployment) |
+| `@fabrknt/tempest-qn-addon` | QuickNode Marketplace add-on (`fabrknt-dynamic-fees`) |
 
 ## Contracts
 

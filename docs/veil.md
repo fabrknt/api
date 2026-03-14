@@ -13,10 +13,10 @@ POST /api/veil  (standalone)
 
 | Package | Description |
 |---------|-------------|
-| `@veil/core` | Chain-agnostic encryption and privacy primitives, plus optional Solana-specific extensions |
-| `@veil/orders` | Chain-agnostic encrypted swap order payloads for MEV protection on any DEX |
-| `@veil/qn-addon` | Fabrknt Privacy — QuickNode Marketplace REST Add-On serving chain-agnostic privacy primitives |
-| `@veil/mcp-server` | MCP server exposing privacy tools for AI agents (chain-agnostic + Solana-specific) |
+| `@fabrknt/veil-core` | Chain-agnostic encryption and privacy primitives, plus optional Solana-specific extensions |
+| `@fabrknt/veil-orders` | Chain-agnostic encrypted swap order payloads for MEV protection on any DEX |
+| `@fabrknt/veil-qn-addon` | Fabrknt Privacy — QuickNode Marketplace REST Add-On serving chain-agnostic privacy primitives |
+| `@fabrknt/veil-mcp-server` | MCP server exposing privacy tools for AI agents (chain-agnostic + Solana-specific) |
 
 ## Methods
 

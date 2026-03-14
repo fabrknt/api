@@ -33,13 +33,13 @@ import type {
 
 export { Regime, REGIME_NAMES, REGIME_COLORS } from "./types";
 
-// Import shared pure functions from @tempest/core
+// Import shared pure functions from @fabrknt/tempest-core
 import {
     classifyRegime as sdkClassifyRegime,
     interpolateFee as sdkInterpolateFee,
     DEFAULT_FEE_CONFIG as SDK_DEFAULT_FEE_CONFIG,
     estimateIL as sdkEstimateIL,
-} from "@tempest/core";
+} from "@fabrknt/tempest-core";
 
 // ---------------------------------------------------------------------------
 // Volatility regime thresholds (annualized vol)
@@ -73,11 +73,11 @@ const DEFAULT_CONFIG: FeeCurveConfig = {
 
 // ---------------------------------------------------------------------------
 // On-chain fee config (6 breakpoints, vol in bps, fee in bps)
-// From @tempest/core DEFAULT_FEE_CONFIG
+// From @fabrknt/tempest-core DEFAULT_FEE_CONFIG
 // ---------------------------------------------------------------------------
 
 /**
- * Default on-chain fee config — imported from @tempest/core.
+ * Default on-chain fee config — imported from @fabrknt/tempest-core.
  */
 export const DEFAULT_ONCHAIN_FEE_CONFIG: OnChainFeeConfig = SDK_DEFAULT_FEE_CONFIG;
 
@@ -95,7 +95,7 @@ function classifyRegime(volatility: number): VolRegime {
 
 /**
  * Classify a volatility reading in bps into a Regime enum value.
- * Delegates to @tempest/core classifyRegime.
+ * Delegates to @fabrknt/tempest-core classifyRegime.
  */
 export function classifyRegimeBps(volBps: number): number {
     return sdkClassifyRegime(volBps);
@@ -133,7 +133,7 @@ export async function classifyVolRegime(params: {
 
 /**
  * Piecewise-linear interpolation of vol (in bps) to fee (in bps).
- * Delegates to @tempest/core interpolateFee.
+ * Delegates to @fabrknt/tempest-core interpolateFee.
  */
 export function interpolateFeeBps(
     volBps: number,
@@ -231,7 +231,7 @@ export async function getFeeCurve(params: {
 
 /**
  * Estimate IL for concentrated liquidity.
- * Delegates to @tempest/core estimateIL.
+ * Delegates to @fabrknt/tempest-core estimateIL.
  */
 export function estimateConcentratedIL(
     volBps: number,

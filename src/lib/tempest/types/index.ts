@@ -65,14 +65,14 @@ export interface FeeCurveConfig {
 }
 
 // ---------------------------------------------------------------------------
-// On-chain types — re-exported from @tempest/core
+// On-chain types — re-exported from @fabrknt/tempest-core
 // ---------------------------------------------------------------------------
 
 import {
     Regime,
     REGIME_NAMES,
     REGIME_COLORS,
-} from "@tempest/core";
+} from "@fabrknt/tempest-core";
 
 import type {
     VolState,
@@ -80,14 +80,14 @@ import type {
     PoolInfo,
     VolSample,
     RecommendedRange,
-} from "@tempest/core";
+} from "@fabrknt/tempest-core";
 
 export { Regime, REGIME_NAMES, REGIME_COLORS };
 export type { VolState, PoolInfo, VolSample, RecommendedRange };
 export type OnChainFeeConfig = FeeConfig;
 
 // ---------------------------------------------------------------------------
-// Chain adapter types (from @tempest/core)
+// Chain adapter types (from @fabrknt/tempest-core)
 // ---------------------------------------------------------------------------
 
 export type Chain = "solana" | "evm";

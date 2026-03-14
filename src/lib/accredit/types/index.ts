@@ -44,7 +44,7 @@ export interface TransferCheckResult {
 }
 
 // ---------------------------------------------------------------------------
-// On-chain KYC types — imported from @accredit/core
+// On-chain KYC types — imported from @fabrknt/accredit-core
 // ---------------------------------------------------------------------------
 
 import {
@@ -54,21 +54,21 @@ import {
     kycLevelFromString,
     jurisdictionToString,
     jurisdictionFromString,
-} from "@accredit/core";
+} from "@fabrknt/accredit-core";
 import type {
     KycLevelString,
     JurisdictionString,
-} from "@accredit/core";
+} from "@fabrknt/accredit-core";
 
 /**
- * On-chain KYC level enum — re-exported from @accredit/core.
+ * On-chain KYC level enum — re-exported from @fabrknt/accredit-core.
  * Basic=0, Standard=1, Enhanced=2, Institutional=3.
  */
 export const OnChainKycLevel = SdkKycLevel;
 export type OnChainKycLevel = SdkKycLevel;
 
 /**
- * On-chain Jurisdiction enum — re-exported from @accredit/core.
+ * On-chain Jurisdiction enum — re-exported from @fabrknt/accredit-core.
  * Used for jurisdiction bitmask checks in the registry program.
  */
 export const OnChainJurisdiction = SdkJurisdiction;
@@ -131,7 +131,7 @@ export interface ComplianceCheckResult {
 }
 
 // ---------------------------------------------------------------------------
-// Compliant wrapper types (from @accredit/core)
+// Compliant wrapper types (from @fabrknt/accredit-core)
 // ---------------------------------------------------------------------------
 
 /**
@@ -185,7 +185,7 @@ export interface WrapResult {
 }
 
 // ---------------------------------------------------------------------------
-// Pool compliance types (from @accredit/core)
+// Pool compliance types (from @fabrknt/accredit-core)
 // ---------------------------------------------------------------------------
 
 export enum PoolStatus {

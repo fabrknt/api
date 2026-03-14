@@ -12,7 +12,7 @@ export interface Position {
     strike?: number;
     expiry?: number;      // unix timestamp
     optionType?: OptionType;
-    // Extended fields (from @tensor/core)
+    // Extended fields (from @fabrknt/tensor-core)
     side?: "long" | "short";
     instrumentType?: string;
 }
@@ -88,7 +88,7 @@ export interface RiskAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Types re-exported from @tensor/core
+// Types re-exported from @fabrknt/tensor-core
 // ---------------------------------------------------------------------------
 
 import type {
@@ -100,7 +100,7 @@ import type {
     HealthResult as SdkHealthResult,
     NettingGroup as SdkNettingGroup,
     DeltaNetResult as SdkDeltaNetResult,
-} from "@tensor/core";
+} from "@fabrknt/tensor-core";
 
 // Re-export types from SDK — these are structurally identical
 export type VolSurface = SdkVolSurface;

@@ -1,5 +1,5 @@
-// Jurisdiction type — imported from @complr/core (identical definition)
-import type { Jurisdiction as SdkJurisdiction } from "@complr/core";
+// Jurisdiction type — imported from @fabrknt/complr-core (identical definition)
+import type { Jurisdiction as SdkJurisdiction } from "@fabrknt/complr-core";
 export type Jurisdiction = SdkJurisdiction;
 
 export interface WalletScreenResult {

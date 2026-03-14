@@ -108,9 +108,9 @@ Check whether a bit is set.
 
 | Package | Description |
 |---------|-------------|
-| `@stratum/core` | Chain-agnostic MerkleTree, Bitfield, OrderMatcher, types |
-| `@stratum/solana` | PDA derivation, OrderBookClient, solanaHash |
-| `@stratum/evm` | EvmMerkleTree, event parser, archive manager |
+| `@fabrknt/stratum-core` | Chain-agnostic MerkleTree, Bitfield, OrderMatcher, types |
+| `@fabrknt/stratum-solana` | PDA derivation, OrderBookClient, solanaHash |
+| `@fabrknt/stratum-evm` | EvmMerkleTree, event parser, archive manager |
 
 ## EVM Gas Benchmarks
 

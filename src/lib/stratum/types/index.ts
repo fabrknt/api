@@ -48,26 +48,26 @@ export interface HealthStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Order book types — imported from @stratum/core
+// Order book types — imported from @fabrknt/stratum-core
 // ---------------------------------------------------------------------------
 
-import { OrderSide } from "@stratum/core";
+import { OrderSide } from "@fabrknt/stratum-core";
 export { OrderSide };
 
-// Re-export compat types from @stratum/core so consumers can use the SDK
+// Re-export compat types from @fabrknt/stratum-core so consumers can use the SDK
 // directly instead of local definitions.
 import type {
     ApiOrderLeaf as SdkApiOrderLeaf,
     StructuredMerkleProof as SdkStructuredMerkleProof,
     HashFunctionName as SdkHashFunctionName,
-} from "@stratum/core";
+} from "@fabrknt/stratum-core";
 
 export type OrderLeaf = SdkApiOrderLeaf;
 export type MerkleProof = SdkStructuredMerkleProof;
 export type HashFunction = SdkHashFunctionName;
 
 // ---------------------------------------------------------------------------
-// ZK types (from @stratum/core)
+// ZK types (from @fabrknt/stratum-core)
 // ---------------------------------------------------------------------------
 
 export interface ZKCircuitConfig {
@@ -92,7 +92,7 @@ export interface ZKVerificationResult {
 }
 
 // ---------------------------------------------------------------------------
-// DA (Data Availability) types (from @stratum/core)
+// DA (Data Availability) types (from @fabrknt/stratum-core)
 // ---------------------------------------------------------------------------
 
 export type DAProvider = "celestia" | "avail" | "eigenDA" | "memory";
@@ -127,7 +127,7 @@ export interface DARetrievalResult {
 }
 
 // ---------------------------------------------------------------------------
-// Cranker registry types (from @stratum/core)
+// Cranker registry types (from @fabrknt/stratum-core)
 // ---------------------------------------------------------------------------
 
 export interface CrankerEntry {

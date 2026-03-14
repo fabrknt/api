@@ -1,7 +1,7 @@
 /**
  * Veil — Privacy-preserving infrastructure for DeFi.
  *
- * Self-contained implementation reflecting @veil/core capabilities:
+ * Self-contained implementation reflecting @fabrknt/veil-core capabilities:
  * - NaCl Box encryption (Curve25519-XSalsa20-Poly1305) — chain-agnostic
  * - Threshold secret sharing (Shamir's M-of-N)
  * - Payload serialization for encrypted swap orders / RWA assets
@@ -87,7 +87,7 @@ function decrypt(ciphertext: string, iv: string, authTag: string, purpose: strin
 }
 
 // ---------------------------------------------------------------------------
-// NaCl Box encryption (reflects @veil/core nacl-box.ts)
+// NaCl Box encryption (reflects @fabrknt/veil-core nacl-box.ts)
 // ---------------------------------------------------------------------------
 
 export interface EncryptionKeypair {
@@ -142,7 +142,7 @@ export function encryptionKeyToHex(publicKey: Uint8Array): string {
 }
 
 // ---------------------------------------------------------------------------
-// Threshold secret sharing (reflects @veil/core threshold.ts)
+// Threshold secret sharing (reflects @fabrknt/veil-core threshold.ts)
 // ---------------------------------------------------------------------------
 
 export interface SecretShare {
@@ -157,7 +157,7 @@ export interface ThresholdConfig {
 
 /**
  * Split a secret into M-of-N shares using Shamir's Secret Sharing.
- * Simplified implementation — production code in @veil/core uses finite field GF(p).
+ * Simplified implementation — production code in @fabrknt/veil-core uses finite field GF(p).
  */
 export function splitSecret(
     secret: Uint8Array,
@@ -209,7 +209,7 @@ export function createThresholdEncryption(
 }
 
 // ---------------------------------------------------------------------------
-// Payload serialization — imported from @veil/core
+// Payload serialization — imported from @fabrknt/veil-core
 // ---------------------------------------------------------------------------
 
 import {
@@ -217,7 +217,7 @@ import {
     SWAP_ORDER_SCHEMA,
     RWA_ASSET_SCHEMA,
     RWA_ACCESS_GRANT_SCHEMA,
-} from "@veil/core";
+} from "@fabrknt/veil-core";
 
 export {
     calculateSchemaSize,
@@ -230,10 +230,10 @@ export type {
     FieldType,
     FieldDef,
     PayloadSchema,
-} from "@veil/core";
+} from "@fabrknt/veil-core";
 
 // ---------------------------------------------------------------------------
-// ZK Compression (reflects @veil/core zk-compression.ts — Light Protocol)
+// ZK Compression (reflects @fabrknt/veil-core zk-compression.ts — Light Protocol)
 // ---------------------------------------------------------------------------
 
 export interface ZkCompressionConfig {
@@ -274,7 +274,7 @@ export function estimateCompressionSavings(
 }
 
 // ---------------------------------------------------------------------------
-// Shielded transfers (reflects @veil/core shielded.ts — Privacy Cash)
+// Shielded transfers (reflects @fabrknt/veil-core shielded.ts — Privacy Cash)
 // ---------------------------------------------------------------------------
 
 export interface ShieldedBalance {
@@ -300,7 +300,7 @@ export function estimateShieldedFee(tokenType: "SOL" | "USDC" | "USDT"): bigint 
 }
 
 // ---------------------------------------------------------------------------
-// Arcium integration (reflects @veil/core arcium.ts — encrypted shared state)
+// Arcium integration (reflects @fabrknt/veil-core arcium.ts — encrypted shared state)
 // ---------------------------------------------------------------------------
 
 export interface PoolAggregates {
@@ -328,7 +328,7 @@ export interface MpcComputationResult {
 }
 
 // ---------------------------------------------------------------------------
-// Noir ZK proofs (reflects @veil/core noir.ts)
+// Noir ZK proofs (reflects @fabrknt/veil-core noir.ts)
 // ---------------------------------------------------------------------------
 
 export interface NoirProof {
@@ -344,7 +344,7 @@ export interface VerificationResult {
     estimatedGas?: number;
 }
 
-/** Available Noir circuits in @veil/core */
+/** Available Noir circuits in @fabrknt/veil-core */
 export const NOIR_CIRCUITS = [
     "swap_validity",
     "position_ownership",
@@ -355,7 +355,7 @@ export const NOIR_CIRCUITS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// RPC providers (reflects @veil/core rpc-providers.ts)
+// RPC providers (reflects @fabrknt/veil-core rpc-providers.ts)
 // ---------------------------------------------------------------------------
 
 export type RpcProvider = "helius" | "quicknode" | "custom";
@@ -639,7 +639,7 @@ export const veil = {
     assessPrivacy,
     recordConsent,
     getConsent,
-    // New @veil/core features
+    // New @fabrknt/veil-core features
     generateEncryptionKeypair,
     deriveEncryptionKeypair,
     encryptionKeyToBase58,

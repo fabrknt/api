@@ -70,10 +70,10 @@ export interface MevAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Pattern IDs — derived from @sentinel/core PatternId enum values
+// Pattern IDs — derived from @fabrknt/sentinel-core PatternId enum values
 // ---------------------------------------------------------------------------
 
-import { PatternId as SdkPatternId, Severity as SdkSeverity } from "@sentinel/core";
+import { PatternId as SdkPatternId, Severity as SdkSeverity } from "@fabrknt/sentinel-core";
 
 /**
  * All known pattern IDs as string union.
@@ -94,7 +94,7 @@ export interface SecurityWarning {
 }
 
 // ---------------------------------------------------------------------------
-// Simulation types — re-exported from @sentinel/core
+// Simulation types — re-exported from @fabrknt/sentinel-core
 // ---------------------------------------------------------------------------
 
 export type {
@@ -102,7 +102,7 @@ export type {
     SimulationResult,
     StateChange,
     BalanceChange,
-} from "@sentinel/core";
+} from "@fabrknt/sentinel-core";
 
 // ---------------------------------------------------------------------------
 // Bytecode analysis types
@@ -117,19 +117,19 @@ export interface BytecodeAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Bundle types — re-exported from @sentinel/core
+// Bundle types — re-exported from @fabrknt/sentinel-core
 // ---------------------------------------------------------------------------
 
 export {
     FlashbotsNetwork,
-} from "@sentinel/core";
+} from "@fabrknt/sentinel-core";
 
 export type {
     FlashbotsBundle,
     MevShareBundle,
     BundleResult,
     BundleStatusResponse,
-} from "@sentinel/core";
+} from "@fabrknt/sentinel-core";
 
 // ---------------------------------------------------------------------------
 // Honeypot analysis types
@@ -143,13 +143,13 @@ export interface HoneypotAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Oracle registry types (from @sentinel/core oracle-registry.ts)
+// Oracle registry types (from @fabrknt/sentinel-core oracle-registry.ts)
 // ---------------------------------------------------------------------------
 
 export interface OracleRegistryConfig {
     rpcUrl: string;
 }
 
-// Re-export Chainlink denomination constants from @sentinel/core
-import { DENOMINATIONS } from "@sentinel/core";
+// Re-export Chainlink denomination constants from @fabrknt/sentinel-core
+import { DENOMINATIONS } from "@fabrknt/sentinel-core";
 export const CHAINLINK_DENOMINATIONS = DENOMINATIONS;
