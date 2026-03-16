@@ -262,6 +262,19 @@ export async function checkJurisdiction(
     exposureUsd?: number,
 ): Promise<JurisdictionCheckResult> {
     const requirements = JURISDICTION_REQUIREMENTS[jurisdiction];
+    if (!requirements) {
+        const supported = Object.keys(JURISDICTION_REQUIREMENTS).join(", ");
+        return {
+            address,
+            jurisdiction,
+            allowed: false,
+            restrictions: [`Unsupported jurisdiction: ${jurisdiction}. Supported: ${supported}`],
+            requiredKycLevel: "none",
+            currentKycLevel: "none",
+            reason: `Unsupported jurisdiction: ${jurisdiction}. Supported: ${supported}`,
+        };
+    }
+
     const record = await getKycRecord(address);
     const currentKycLevel: KycLevel = record?.kycLevel || "none";
     const restrictions: string[] = [];
@@ -373,6 +386,10 @@ export async function checkTransfer(
     if (fromRecord && toRecord) {
         for (const j of jurisdictions) {
             const req = JURISDICTION_REQUIREMENTS[j];
+            if (!req) {
+                requiredActions.push(`Unsupported jurisdiction: ${j}`);
+                continue;
+            }
             if (!meetsKycLevel(fromRecord.kycLevel, req.minKycLevel)) {
                 requiredActions.push(`Sender does not meet ${j} KYC requirements`);
             }

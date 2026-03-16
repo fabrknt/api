@@ -29,7 +29,17 @@ export async function POST(request: Request) {
                         { status: 400 },
                     );
                 }
-                result = await tensor.computeGreeks({ asset, spot, strike, expiry, optionType, iv });
+                // Convert expiry to Unix timestamp (seconds) if it's a date string
+                const expiryTimestamp = typeof expiry === "string"
+                    ? new Date(expiry).getTime() / 1000
+                    : expiry;
+                if (Number.isNaN(expiryTimestamp)) {
+                    return NextResponse.json(
+                        { error: "Invalid expiry date" },
+                        { status: 400 },
+                    );
+                }
+                result = await tensor.computeGreeks({ asset, spot, strike, expiry: expiryTimestamp, optionType, iv });
                 break;
             }
             case "calculate_margin": {
