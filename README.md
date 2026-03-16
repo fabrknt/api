@@ -1,8 +1,32 @@
 # FABRKNT API
 
-Plug-in compliance for DeFi protocols serving TradFi — delivered as REST APIs and QuickNode Marketplace add-ons. No rebuilds required.
+Not every DeFi protocol needs TradFi compliance -- but if yours does, you shouldn't have to rebuild from scratch. Fabrknt plugs into your existing protocol with composable SDKs and APIs. No permissioned forks, no separate deployments.
 
-## Seven Plug-in Products
+**Integration paths:** REST API | TypeScript SDKs (npm) | QuickNode Marketplace (coming soon)
+**Jurisdictions:** MAS (Singapore), SFC (Hong Kong), FSA (Japan)
+**Pricing:** Free tier on all products. Pro from $49/mo.
+**Website:** [fabrknt.com](https://fabrknt.com)
+
+## npm Packages
+
+All 7 products are published as standalone TypeScript SDKs:
+
+```
+npm install @fabrknt/veil-core @fabrknt/sentinel-core @fabrknt/stratum-core \
+  @fabrknt/accredit-core @fabrknt/complr-core @fabrknt/tempest-core @fabrknt/tensor-core
+```
+
+| Package | Version | Product |
+|---------|---------|---------|
+| `@fabrknt/complr-core` | 1.0.0 | Complr -- AI compliance engine |
+| `@fabrknt/accredit-core` | 1.0.0 | Accredit -- On-chain KYC/AML |
+| `@fabrknt/sentinel-core` | 1.0.0 | Sentinel -- Transaction security |
+| `@fabrknt/veil-core` | 1.0.0 | Veil -- Privacy and encryption |
+| `@fabrknt/stratum-core` | 1.0.0 | Stratum -- State primitives |
+| `@fabrknt/tensor-core` | 1.0.0 | Tensor -- Margin engine |
+| `@fabrknt/tempest-core` | 1.0.0 | Tempest -- Dynamic fee hook |
+
+## Seven Plug-in Products (REST API)
 
 ### Compliance
 
@@ -149,7 +173,7 @@ All endpoints accept JSON-RPC style requests:
 
 ## QuickNode Marketplace
 
-All 7 products are available as QuickNode Marketplace add-ons with automatic provisioning.
+All 7 products will be available as QuickNode Marketplace add-ons with automatic provisioning (coming soon).
 
 ### Customer API
 
@@ -255,7 +279,7 @@ Per-product user documentation with request/response examples:
 | Repo | Description |
 |------|-------------|
 | [fabrknt/scorecard](https://github.com/fabrknt/scorecard) | DeFi Compliance Readiness dashboard at fabrknt.com |
-| [fabrknt/forge](https://github.com/fabrknt/forge) | Reference app showing all 7 Fabrknt plug-ins in action |
+| [fabrknt/forge](https://github.com/fabrknt/forge) | Reference app showing all 7 Fabrknt plug-ins in action (uses `@fabrknt/*-core` SDKs) |
 
 ## License
 
