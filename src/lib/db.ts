@@ -12,7 +12,7 @@ const connectionString = process.env.DATABASE_URL;
 const pool = globalForPrisma.pool ?? new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
 if (process.env.NODE_ENV !== "production") globalForPrisma.pool = pool;
 
-const adapter = new PrismaPg(pool);
+const adapter = new PrismaPg(pool as any);
 
 export const prisma =
     globalForPrisma.prisma ??
