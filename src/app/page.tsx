@@ -2,7 +2,8 @@ export default function Home() {
     return (
         <main style={{ fontFamily: "system-ui, sans-serif", padding: "4rem", color: "#fff", background: "#050a0e", minHeight: "100vh" }}>
             <h1 style={{ fontSize: "2rem", fontWeight: 900 }}>FABRKNT API</h1>
-            <p style={{ color: "#64748b", marginTop: "0.5rem" }}>Compliance, privacy, DeFi, and data infrastructure for blockchain.</p>
+            <p style={{ color: "#64748b", marginTop: "0.5rem" }}>Plug-in compliance for existing DeFi protocols. No rebuilds required.</p>
+            <p style={{ color: "#475569", marginTop: "0.25rem", fontSize: "0.8rem" }}>npm: <a href="https://www.npmjs.com/search?q=%40fabrknt" style={{ color: "#22d3ee" }}>@fabrknt/*-core</a> · <a href="https://fabrknt.com/products" style={{ color: "#22d3ee" }}>Products &amp; Pricing</a> · <a href="https://forge.fabrknt.com" style={{ color: "#22d3ee" }}>Forge (Reference App)</a></p>
 
             <div style={{ marginTop: "2.5rem", display: "flex", gap: "2rem", flexWrap: "wrap" }}>
                 <div style={{ flex: 1, minWidth: "200px" }}>
@@ -40,13 +41,13 @@ export default function Home() {
             <div style={{ marginTop: "2.5rem", borderTop: "1px solid #1e293b", paddingTop: "1.5rem" }}>
                 <h2 style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569", letterSpacing: "0.1em", textTransform: "uppercase" }}>Endpoints</h2>
                 <div style={{ marginTop: "0.75rem", color: "#64748b", fontSize: "0.8rem", fontFamily: "monospace", lineHeight: 1.8 }}>
-                    <p>POST /api/quicknode/complr/[apiKey] — Complr via QuickNode</p>
-                    <p>POST /api/accredit — KYC &amp; jurisdiction checks</p>
-                    <p>POST /api/sentinel — Transaction security analysis</p>
-                    <p>POST /api/veil — Privacy proofs &amp; encryption</p>
-                    <p>POST /api/stratum — Data feeds &amp; sanctions</p>
-                    <p>POST /api/tensor — Portfolio margin &amp; greeks</p>
-                    <p>POST /api/tempest — Dynamic fees &amp; LP optimization</p>
+                    <p>POST /api/complr — Sanctions screening &amp; compliance · <span style={{ color: "#475569" }}>npm: @fabrknt/complr-core</span></p>
+                    <p>POST /api/accredit — KYC &amp; jurisdiction checks · <span style={{ color: "#475569" }}>npm: @fabrknt/accredit-core</span></p>
+                    <p>POST /api/sentinel — Transaction security analysis · <span style={{ color: "#475569" }}>npm: @fabrknt/sentinel-core</span></p>
+                    <p>POST /api/veil — Privacy proofs &amp; encryption · <span style={{ color: "#475569" }}>npm: @fabrknt/veil-core</span></p>
+                    <p>POST /api/stratum — Data feeds &amp; sanctions · <span style={{ color: "#475569" }}>npm: @fabrknt/stratum-core</span></p>
+                    <p>POST /api/tensor — Portfolio margin &amp; greeks · <span style={{ color: "#475569" }}>npm: @fabrknt/tensor-core</span></p>
+                    <p>POST /api/tempest — Dynamic fees &amp; LP optimization · <span style={{ color: "#475569" }}>npm: @fabrknt/tempest-core</span></p>
                 </div>
             </div>
         </main>
